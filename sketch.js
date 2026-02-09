@@ -212,6 +212,43 @@ class Particle{
  
 }
 
+class MenuItem{ //figure out positioning
+  constructor(itemname, itemnumber){
+    this.x = width * 0.17;
+    this.y = height * 0.17;
+    this.w = width * 0.15;
+    this.h = height * 0.15;
+    this.hovered = false;
+    this.name = itemname;
+    this.number = itemnumber;
+  }
+  show(){
+    push();
+    translate(-width/2 + this.x, -height/2 + this.y, 20);
+    strokeWeight(4);
+    stroke(turquoise);
+    rectMode(CENTER);
+    if (this.hovered) {
+      fill(gold);
+    } else {
+      noFill();
+    }
+    rect(0, 0, this.w, this.h);
+
+    // label
+    fill(0);
+    noStroke();
+    textAlign(CENTER, CENTER);
+    textSize(width * 0.06);
+    textLeading(width * 0.06);
+    text(this.name, 0, 0, this.w);
+    pop();  
+``}
+}
+
+
+//helpers
+
 // collision resolver (equal-mass elastic, circle-approximation + separation)
 function  resolveCollision(a, b) {
     const boxSize = 10;
