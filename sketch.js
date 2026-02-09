@@ -6,6 +6,9 @@ let turquoise;
 let magenta;
 let gold;
 
+let vimeoIframe;
+let cnv;
+
 const assetImageFiles = [
   'hopscotch1.jpg',
   'image-asset_027.webp',
@@ -41,15 +44,17 @@ function preload() {
 }
 
 function setup() {
-  createCanvas(windowWidth, windowHeight, WEBGL);
+  cnv = createCanvas(windowWidth, windowHeight, WEBGL);
+  cnv.style('position', 'relative');
+  cnv.style('z-index', '1'); // canvas above the video
   turquoise = color(64, 224, 208);
   magenta   = color(255, 0, 255);
   gold = color(255,200,87);
-  for (let i = 0; i < particleCount; i++) {
+  for (let i = 0; i < particleCount; i++){
     particles.push(new Particle());
-    
   }
   textFont(header);
+  createVimeoIframe(); // create iframe (hidden by default)
 }
 
 function draw() {
@@ -73,13 +78,14 @@ function draw() {
   rectMode(CENTER);
   rect(0, 0, width * 0.8, height * 0.8);
   fill(0); //text color
-  textAlign(CENTER, CENTER);
-  textSize(85);
-  textLeading(85);        // line spacing
+  textAlign(CENTER, CENTER)
+  textSize(width * 0.1);
+  textLeading(width * 0.1);        // line spacing
   textWrap(WORD);
   const textBoxW = width * 0.7;
   text(bioBlurb, 0, 0, textBoxW); // draw wrapped text in box with given width
   pop();  
+
 
   //work box
   const workCenterX = width * 0.17;
@@ -90,19 +96,25 @@ function draw() {
   const wright = workCenterX + workW * 0.5;
   const wtop = workCenterY - workH * 0.5;
   const wbottom = workCenterY + workH * 0.5;
-  const whovered = mouseX >= wleft && mouseX <= wright && mouseY >= wtop && mouseY <= wbottom;
+  const wHovered = mouseX >= wleft && mouseX <= wright && mouseY >= wtop && mouseY <= wbottom;
   push();
-  // draw in WEBGL space (translate from center to the same screen point)
+  // translate from center for webgl
   translate(-width/2 + workCenterX, -height/2 + workCenterY, 20);
   strokeWeight(4);
   stroke(turquoise);
   rectMode(CENTER);
-  if (whovered) {
+  if (wHovered) {
     fill(gold);
   } else {
     noFill();
   }
   rect(0, 0, workW, workH);
+
+  if (wHovered) {
+    showVimeoBackground();
+  } else {
+    hideVimeo();
+  }
 
   // label
   fill(0);
@@ -287,7 +299,83 @@ function enforceMainRect(p) {
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
-  // keep existing particles inside the new bounds
+  // keep iframe size updated even if hidden
+  if (vimeoIframe) vimeoIframe.size(windowWidth, windowHeight);
+  for (let p of particles) {
+    p.position.x = constrain(p.position.x, 0, width);
+    p.position.y = constrain(p.position.y, 0, height);
+  }
+}
+
+
+// ...existing code...
+function createVimeoIframe() {
+  const src = 'https://player.vimeo.com/video/932979322?autoplay=1&loop=1&muted=1&autopause=0&background=1';
+  vimeoIframe = createElement('iframe');
+  vimeoIframe.attribute('src', src);
+  vimeoIframe.attribute('frameborder', '0');
+  vimeoIframe.attribute('allow', 'autoplay; fullscreen; picture-in-picture');
+  vimeoIframe.attribute('allowfullscreen', '');
+
+  // initial minimal styling; actual sizing done in showVimeoBackground to guarantee cover
+  vimeoIframe.style('position', 'fixed');
+  vimeoIframe.style('left', '50%');
+  vimeoIframe.style('top', '50%');
+  vimeoIframe.style('transform', 'translate(-50%,-50%)');
+  vimeoIframe.style('object-fit', 'cover');
+  vimeoIframe.style('pointer-events', 'none'); // keep canvas interactive
+  vimeoIframe.style('z-index', '9999');        // visible above canvas when shown
+  vimeoIframe.style('border', '0');
+  vimeoIframe.hide(); // start hidden
+}
+
+const VIDEO_ASPECT = 16 / 9; // adjust if your Vimeo video uses another aspect
+
+function showVimeoBackground() {
+  if (!vimeoIframe) return;
+
+  // viewport
+  const vw = Math.max(1, window.innerWidth);
+  const vh = Math.max(1, window.innerHeight);
+
+  // compute size that fully covers the viewport while preserving aspect ratio
+  let w, h;
+  if (vw / vh < VIDEO_ASPECT) {
+    // viewport is narrower than video -> make width based on height
+    h = vh;
+    w = Math.ceil(h * VIDEO_ASPECT);
+  } else {
+    // viewport is wider (or equal) -> make height based on width
+    w = vw;
+    h = Math.ceil(w / VIDEO_ASPECT);
+  }
+
+  // apply centered oversize sizing (px ensures precise cover on narrow viewports)
+  vimeoIframe.style('position', 'fixed');
+  vimeoIframe.style('left', '50%');
+  vimeoIframe.style('top', '50%');
+  vimeoIframe.style('transform', 'translate(-50%,-50%)');
+  vimeoIframe.style('width', `${w}px`);
+  vimeoIframe.style('height', `${h}px`);
+  vimeoIframe.style('min-width', '100vw');
+  vimeoIframe.style('min-height', '100vh');
+  vimeoIframe.style('object-fit', 'cover');
+  vimeoIframe.style('pointer-events', 'none');
+  vimeoIframe.style('z-index', '9999');
+  vimeoIframe.show();
+}
+
+function hideVimeo() {
+  if (!vimeoIframe) return;
+  vimeoIframe.hide();
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+  // update iframe sizing if visible
+  if (vimeoIframe && vimeoIframe.elt && vimeoIframe.elt.style.display !== 'none') {
+    showVimeoBackground();
+  }
   for (let p of particles) {
     p.position.x = constrain(p.position.x, 0, width);
     p.position.y = constrain(p.position.y, 0, height);
