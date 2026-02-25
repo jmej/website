@@ -1,21 +1,12 @@
 let bioBlurb = "Jesse Mejía is an artist, programmer and educator."
-let images = [];
-let particles = [];
-let particleCount = 20;
+let projectImages = []; 
+let particles = []; //single image per project now - change into array of sub images
 let turquoise;
 let magenta;
 let gold;
 
 let vimeoIframe;
 let cnv;
-
-const assetImageFiles = [
-  'hopscotch1.jpg',
-  'image-asset_027.webp',
-  'interactivity-lab1.webp',
-  'P1140049.webp',
-  'exchange3.webp',
-];
 
 let faceImages = []; // length 6: faceImages[0] = content gfx (front), others = p5.Image
 let contentG;
@@ -34,12 +25,8 @@ const SWITCH_INTERVAL = 5000; // ms between rotation target changes
 
 function preload() {
   header = loadFont('assets/Team-Athletics-Freeware.ttf');
-  // try to load listed asset files; push only successful loads
-  for (let f of assetImageFiles) {
-    loadImage('assets/' + f,
-      img => images.push(img),
-      err => { /* ignore missing files */ }
-    );
+  for (let i = 0; i < projects.length; i++) {
+    projectImages[i] = loadImage("assets/" + projects[i].image);
   }
 }
 
@@ -50,8 +37,8 @@ function setup() {
   turquoise = color(64, 224, 208);
   magenta   = color(255, 0, 255);
   gold = color(255,200,87);
-  for (let i = 0; i < particleCount; i++){
-    particles.push(new Particle());
+  for (let i = 0; i < projects.length; i++){ //create a particle for each project
+    particles.push(new Particle(i)); //pass i for project id
   }
   textFont(header);
   createVimeoIframe(); // create iframe (hidden by default)
@@ -65,6 +52,8 @@ function draw() {
     e.show();
   });
   
+  checkForMouseHoverOvercube();
+
   // resolve collisions
   for (let i = 0; i < particles.length; i++) {
     for (let j = i + 1; j < particles.length; j++) {
@@ -75,14 +64,15 @@ function draw() {
   push();
   strokeWeight(4);
   noStroke();
+  fill(magenta);
   rectMode(CENTER);
   rect(0, 0, width * 0.8, height * 0.8);
-  fill(0); //text color
   textAlign(CENTER, CENTER)
   textSize(width * 0.1);
   textLeading(width * 0.1);        // line spacing
   textWrap(WORD);
   const textBoxW = width * 0.7;
+  fill(0); //text color
   text(bioBlurb, 0, 0, textBoxW); // draw wrapped text in box with given width
   pop();  
 
@@ -111,9 +101,9 @@ function draw() {
   rect(0, 0, workW, workH);
 
   if (wHovered) {
-    showVimeoBackground();
-  } else {
-    hideVimeo();
+    changeCubesToImages(true); //change cube faces to project images
+    expandCubesToGrid(); //expand cubes into grid layout
+    //showVimeoBackground();
   }
 
   // label
@@ -161,31 +151,38 @@ function draw() {
 }
 
 class Particle{
-  constructor(){
+  constructor(id){
     let loc = createVector(random(width), random(height));
     let vel = createVector(random(-1, 1), random(-1, 1));
     this.position = loc;
     this.velocity = vel;
+    this.size = 10;
     let pColor = color(random(255), random(255), random(255));
     this.pColor = pColor;
     this.birthTime = millis();
     this.age;
+    this.enforceMainRect = true; // toggle for whether to keep particles in main content box
     this.turquoise = turquoise;
     this.magenta = magenta;
     this.gold = gold;
     this.angle = random(TWO_PI);
     this.rotationSpeed = random(-0.01, 0.01);
+    this.projectId = id; //each box is associated with a project
+    this.image = projects[id].image;
   }
   show(){
     let c = lerpColor(this.turquoise, this.magenta, this.age / 5000);
     fill(c);
+    if(this.showImage){
+      texture(projectImages[this.projectId]);
+    }
     noStroke();
     push();
     translate(this.position.x - width / 2, this.position.y - height / 2);
     rotateX(this.angle);
     rotateY(this.angle);
     rotateZ(this.angle);
-    box(10);
+    box(this.size);
     pop();
   }
   update(){
@@ -197,8 +194,9 @@ class Particle{
     // keep speeds reasonable
     this.velocity.limit(3);
 
-    // keep particles outside the main content rectangle
-    enforceMainRect(this);
+    if(this.enforceMainRect){
+      enforceMainRect(this);
+    }
 
     if(this.position.x > width || this.position.x < 0){
       this.velocity.x *= -1;
@@ -243,7 +241,7 @@ class MenuItem{ //figure out positioning
     textLeading(width * 0.06);
     text(this.name, 0, 0, this.w);
     pop();  
-``}
+  }
 }
 
 
@@ -291,14 +289,14 @@ function getWindAt(position) {
   const dist = r.mag();
   if (dist === 0) return createVector(0, 0);
 
-  // tangent (perpendicular) gives perfect circular flow
+  // tangent (perpendicular) gives circular flow
   let tangent = createVector(-r.y, r.x).normalize();
 
-  // optional slow precession of the whole field
+  // slow precession of the whole field
   const spin = millis() * 0.0002; // tweak to speed up/down
   tangent.rotate(spin);
 
-  // fade wind toward edges (optional)
+  // fade wind toward edges
   const maxR = min(width, height) * 0.5;
   const falloff = constrain(1 - dist / maxR, 0, 1);
 
@@ -416,6 +414,82 @@ function windowResized() {
   for (let p of particles) {
     p.position.x = constrain(p.position.x, 0, width);
     p.position.y = constrain(p.position.y, 0, height);
+  }
+}
+
+function changeCubesToImages(showImages) {
+  for (let p of particles) {
+    p.showImage = showImages; // set to project image
+    p.enforceMainRect = false; // allow free movement when showing images
+  }
+}
+
+function expandCubesToGrid() {
+  const cols = ceil(sqrt(particles.length));
+  const rows = ceil(particles.length / cols);
+  const gridW = width * 0.9;
+  const gridH = height * 0.9;
+  const cellW = gridW / cols;
+  const cellH = gridH / rows;
+  const startX = width / 2 - gridW / 2 + cellW / 2;
+  const startY = height / 2 - gridH / 2 + cellH / 2;
+
+  particles.forEach((p, i) => {
+    const col = i % cols;
+    const row = floor(i / cols);
+    p.position.x = lerp(p.position.x, startX + col * cellW, 0.1);
+    p.position.y = lerp(p.position.y, startY + row * cellH, 0.1);
+    p.size = lerp(p.size, min(cellW, cellH) * 0.8, 0.1); // grow to fit grid cell
+    p.velocity.mult(0.9); // slow down as they move to grid
+    p.angle = lerp(p.angle, 0, 0.1); // reset rotation for better image display
+  });
+}
+
+function checkForMouseHoverOvercube(){
+  let hoveringAny = false;
+  for (let p of particles) {
+    const screenPos = createVector(p.position.x - width / 2, p.position.y - height / 2);
+    const d = dist(screenPos.x, screenPos.y, mouseX - width / 2, mouseY - height / 2);
+    if (d < p.size/2) {
+      // moveOneCubeToGrid(p); // mouse is hovering over this cube
+      changeCubesToImages(true); // show images when hovering any cube
+      expandCubesToGrid();
+      hoveringAny = true; 
+    }
+  }
+  if (!hoveringAny) {
+    changeCubesToImages(false); // revert to cubes when not hovering any
+    returnCubesToParticles(); // move cubes back to particle positions
+  }
+}
+
+function moveOneCubeToGrid(p) {
+  const cols = ceil(sqrt(particles.length));
+  const rows = ceil(particles.length / cols);
+  const gridW = width * 0.9;
+  const gridH = height * 0.9;
+  const cellW = gridW / cols;
+  const cellH = gridH / rows;
+  const startX = width / 2 - gridW / 2 + cellW / 2;
+  const startY = height / 2 - gridH / 2 + cellH / 2;
+
+  const i = particles.indexOf(p);
+  const col = i % cols;
+  const row = floor(i / cols);
+  p.position.x = lerp(p.position.x, startX + col * cellW, 0.1);
+  p.position.y = lerp(p.position.y, startY + row * cellH, 0.1);
+  p.size = lerp(p.size, min(cellW, cellH) * 0.8, 0.1); // grow to fit grid cell
+  p.velocity.mult(0.7); // slow down as it moves to grid
+  p.angle = lerp(p.angle, 0, 0.1); // reset rotation for better image display
+  p.showImage = true; // set to project image
+  p.enforceMainRect = false; // allow free movement when showing image
+} 
+
+function returnCubesToParticles() {
+  for (let p of particles) {
+    p.showImage = false; // revert to colored cubes
+    p.enforceMainRect = true; // keep particles in main content box
+    p.size = lerp(p.size, 10, 0.1); // shrink back to original size
   }
 }
 
