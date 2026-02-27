@@ -1,6 +1,8 @@
 let bioBlurb = "Jesse Mejía is an artist, programmer and educator."
-let projectImages = []; 
-let particles = []; //single image per project now - change into array of sub images
+let projects = []; // populated in preload from projectData.json
+let projectData;
+let projectImages = [];
+let particles = []; //for now seperating movement logic from project data
 let turquoise;
 let magenta;
 let gold;
@@ -8,7 +10,6 @@ let gold;
 let vimeoIframe;
 let cnv;
 
-let faceImages = []; // length 6: faceImages[0] = content gfx (front), others = p5.Image
 let contentG;
 let cubeSize;
 
@@ -24,10 +25,17 @@ let lastSwitch = 0;
 const SWITCH_INTERVAL = 5000; // ms between rotation target changes
 
 function preload() {
+  console.log("preloading assets...");
   header = loadFont('assets/Team-Athletics-Freeware.ttf');
-  for (let i = 0; i < projects.length; i++) {
-    projectImages[i] = loadImage("assets/" + projects[i].image);
-  }
+  //needed a callback to make the map work since loadJSON is async
+  loadJSON('assets/projectData.json', data => {
+    projects = Object.values(data).map(Project.fromJSON);
+    console.log(data);
+    for (let i = 0; i < projects.length; i++) {
+      projectImages[i] = loadImage("assets/" + encodeURIComponent(projects[i].mainImage))
+      console.log("loading an image for project " + projects[i].name);
+    }
+  });
 }
 
 function setup() {

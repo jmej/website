@@ -1,0 +1,135 @@
+[
+  {
+    "name": "Creative Coding and Interactivity Lab at PCC",
+    "description": "I co-designed and teach the Creative Coding Certificate and Degree programs at Portland Community College, Cascade. Part of this initiative was designing our Interactivity Lab that now serves as a hub for students working at these intersections of art and technology. PCC's Interactivity Lab is a maker space housed within the Music and Sonic Arts program in room 223 of the Moriarty Arts & Humanities Building. The Interactivity Lab supports our Creative Coding courses with 10 full electronics workbenches for work with sensors and microcontrollers, an 8′ by 10′ commercial LED wall, projectors, mappable objects, computer controllable lasers. The Interactivity Lab includes emerging technologies like VR/AR alongside established technologies such as Arduino, sensors, projection mapping and DMX light control. The lab is staffed by students who are learning and using all of these skills in and out of classes.",
+    "main-image": "P1140049.JPG",
+    "more-images": ["P2130736.JPG", "P2130768.JPG", "P1140014.JPG", "interactivity-lab-500x334.jpg"],
+    "video": null
+  },
+  {
+    "name": "unityGain",
+    "description": "I designed and built a High Density Loudspeaker Array (HDLA) at Portland Community College called unityGain. unityGain is a 32 channel Meyer speaker system driven by a rackmount PC, a 32 channel Orion interface and spatialization software that I wrote in Pure Data, with a Lemur front end. In creating this system I had three primary goals: to build a high quality, excellent sounding system capable of ambisonic, vbap, and other spatialization techniques; to create a platform making these exciting new surround sound formats accessible to artists outside of traditional research institutions; and to get students involved in every aspect of system design, implementation, and event production. I wrote software in Pure Data implementing Ville Pulkki's Vector Based Amplitude Panning (VBAP) algorithms to spatialize eight discrete hardware inputs to a circular speaker configuration of the system's 32 channels, with a UI for Lemur running on an iPad.",
+    "main-image": "unityGain1.JPG",
+    "more-images": ["interactivity_lab2.JPG"],
+    "video": null
+  },
+  {
+    "name": "Semaphore",
+    "description": "A multi-layered collaborative project with Audra Wolowiec, the Jaramillo Neuroscience Lab at the University of Oregon, my project CHOIR, and typeface design by Maurann Stein. Commissioned by the Oregon Arts Commission's Percent for Art in Public Places Program and supported by Third Culture Projects. In collaboration with the Neuroscience Lab of Santiago Jaramillo that studies how meaning, memory, and attention are assigned to sounds, Audra Wolowiec created a series of text-based scores as poetic translations of data gathered from the lab and worked with Portland-based Jesse Mejía to compose a vocal piece with CHOIR. The influential lecture by C. P. Snow, The Two Cultures, was used as an underlying structure. Performed October 2016 at the University of Oregon in the Lewis Integrative Science Building, Eugene, OR and the Extradition Series, Portland, OR.",
+    "main-image": "AW_semaphore_photoGregWahlStephens_1.jpg",
+    "more-images": ["semaphore_singers.jpg", "AW_semaphore_photoGregWahlStephens_2.jpg", "semaphore02.jpg", "semaphore03.jpg", "semaphore04.jpg", "semaphore05.jpg", "semaphore06.jpg"],
+    "video": null
+  },
+  {
+    "name": "Midi2DMX",
+    "description": "MIDI2DMX provides a simple way to get total control over a wide variety of lights using existing music software (Ableton Live, Logic, Bitwig, Garage Band, Pro Tools, etc.), as well as hardware midi sequencers like the Akai MPC series, the Elektron Octatrack, Alesis MMT-8, etc. It allows for easy interfacing with programming environments like Pure Data, MaxMSP, and Processing. This makes it easy to sequence lights for live music performances, do algorithmic light programming, map lights using sound analysis, data from the internet, or sensor data. It unlocks cheap DJ lights turning them into flexible and expressive tools and instruments. I designed a PCB to make the circuit easy to build, assembled with students in my interactivity courses at Portland Community College. No wiring required; costs around $40 total.",
+    "main-image": "FIE6B69IVO4MMC4.MEDIUM.jpg",
+    "more-images": [],
+    "video": null
+  },
+  {
+    "name": "Exchange",
+    "description": "A public, interactive sound and light installation on Pioneer Square, up for the weekend of June 24th-26th, 2016. Exchange draws people into an unusual musical experience. Frosted LED tubes illuminate and play an accompanying tone as individuals move around the sculptural form. The notes and lights layer and harmonically resonate as multiple peoples' motion trigger the piece simultaneously. Co-designed and created with Ethan Rose. As sole programmer, I programmed microcontrollers to read 18 ultrasonic rangefinder sensors which triggered sound and light behavior in Pure Data. DMX was sent to DMX relays and 72 tubes filled with bright LED strips. Sound design implemented using Karplus-Strong synthesis and spatialized to 9 channels of audio in a circular array. Supported in part by Houseguest, Pioneer Courthouse Square, Inc., Miller Foundation, and Oregon Community Foundation.",
+    "main-image": "exchange_2_opt.jpg",
+    "more-images": ["exchange_sensor.jpg", "exchange_1_opt.jpg"],
+    "video": "https://vimeo.com/181707592"
+  },
+  {
+    "name": "Direct Path to Detour",
+    "description": "Direct Path to Detour is a dance work by Portland-based choreographer Takahiro Yamamoto. Grounded in the idea that a sense of who we are is rooted in our embodied experiences, this dance evokes mental and physical states at the intersection of value systems, social pressures, expectations, and personal experiences of four dancers. Premiered May 4-7, 2017 at Portland Institute for Contemporary Art, Portland, OR. Also performed Oct 27-29, 2017 at DiverseWorks, Houston, TX and Nov 9-10, 2017 at Contemporary Art Center, Cincinnati, OH. Choreographed by Takahiro Yamamoto; music composed and performed by Jesse Mejia. A National Performance Network (NPN) Creation Fund Project, co-commissioned by PICA in partnership with Contemporary Arts Center Cincinnati, DiverseWorks, and NPN.",
+    "main-image": "DirectPath_1_AnkeSchuettler.jpg",
+    "more-images": [],
+    "video": null
+  },
+  {
+    "name": "Light Noise",
+    "description": "Light Noise was a collaboration between myself and Lu Yim, with dancers keyon gaskin, Taka Yamamoto, and Leah Wilmoth. Performed at Disjecta August 23rd, 24th, and 25th of 2013.",
+    "main-image": "LIGHTNOISE_23web_670.jpg",
+    "more-images": ["LIGHTNOISE_24web_670.jpg", "LIGHTNOISE_25web-1_670.jpg", "LIGHTNOISE_22web_670.jpg", "2_lightnoise1.jpg", "2_lightnoise2.jpg"],
+    "video": "https://vimeo.com/94094383"
+  },
+  {
+    "name": "OZO",
+    "description": "Parallel collaborated with Second Story to create a soundscape for the release of OZO, Nokia's new virtual reality camera. Using over 30 distinct channels of audio and a variety of speakers, Parallel's sonic design was integrated into the architectural layout of the entire 42,000 sq ft event space. Attendees entered through a winding corridor that continually swept sounds up and down the hallway, before emerging into the main event area where unique soundtracks highlighted the bar, live feed, and keynote areas. I programmatically spatialized all of the audio in realtime using Pure Data, and programmed an interface for site-specific mixing and composition. Client: NOKIA / SECOND STORY. Date Created: Spring, 2016.",
+    "main-image": "ozo_1.jpg",
+    "more-images": ["ozo_2.jpg", "ozo_3.jpg"],
+    "video": "https://vimeo.com/151203373"
+  },
+  {
+    "name": "Elements",
+    "description": "Parallel was commissioned by Boora Architects to create a permanent sound installation in a newly constructed building on the Microsoft Campus in Redmond, WA. The resulting installation musically activates the interior space of the lobby by utilizing the weather conditions directly outside. A weather station mounted onto the roof continuously captures changes in weather. The resulting data stream containing wind speed, temperature, precipitation, and sunlight is parsed by a Node.JS server and output as OSC to a PureData patch, which triggers musical sounds that play through around one hundred speakers mounted into the lobby's ceiling. Client: MICROSOFT / BOORA ARCHITECTS. Date Created: Spring, 2015.",
+    "main-image": "elements_3.jpg",
+    "more-images": ["elements_1.jpg"],
+    "video": null
+  },
+  {
+    "name": "Light Wash",
+    "description": "LIGHT WASH was an immersive, interactive, site-specific audio-visual installation at Composition Gallery. 5 channels of generative, evolving sound and 6 channels of highly saturated colored light filled the gallery creating a space for reflection, reaction and restoration. 9 color temperatures slowly followed 9 vowels through minimal and endless combinations. On closing night, 6 sound artists including Mejia presented short audio-visual performances utilizing the installation as their instrument, each given the same limited toolset and communicating with the installation over WiFi using OSC.",
+    "main-image": "27_light_wash_lucy_small.jpg",
+    "more-images": ["27_light_wash_pd.jpg", "27_light_wash1.jpg", "27_light_wash4.jpg"],
+    "video": null
+  },
+  {
+    "name": "Serpentine Dance",
+    "description": "A video document of a collaboration with Jennifer West. Commissioned by PICA TBA Fest 2014, curated by Kristan Kennedy for visual arts exhibition 'As round as an apple, as deep as a cup.' Performed live for two nights in September inside Jennifer West's 'Flashlight Filmstrip Projections' installation. Serpentine Dance: Connie D. Moore. Synthesizer: Jesse Mejia. Theremin: Mark Keppinger. Choreography and Serpentine Costume: Maranee Sanders. Original Score Composed by Sue Harshe (2005), re-interpreted by Jesse Mejia and Mark Keppinger, 2014.",
+    "main-image": "Screen Shot 2017-04-10 at 10.39.34 PM.png",
+    "more-images": ["Screen Shot 2017-04-10 at 10.40.28 PM.png"],
+    "video": null
+  },
+  {
+    "name": "CHOIR",
+    "description": "CHOIR is an ongoing community singing group focused on learning and performing choral music by composers such as Arvo Part and Ola Gjeilo, led by Jesse Mejia. Rehearsals are held on Saturday afternoons, working through difficult but rewarding compositions to build an adventurous repertoire. CHOIR provides sheet music, space and a focused learning environment for singers of all skill levels, and seeks out opportunities to perform in unusual contexts such as art installations or multimedia performance pieces. CHOIR is an experiment in musical pedagogy, a DIY community group and a contemporary music performance ensemble. Supported in part by the Regional Arts & Culture Council in 2017.",
+    "main-image": null,
+    "more-images": [],
+    "video": "https://vimeo.com/151077300"
+  },
+  {
+    "name": "Modular Improvisations",
+    "description": "Improvisations made using custom self-built analog synthesizers and control systems.",
+    "main-image": null,
+    "more-images": [],
+    "video": null
+  },
+  {
+    "name": "Float",
+    "description": "Float is a video made in collaboration with video artist Seth Nehil and dance artist Taka Yamamoto. Sound created by Jesse Mejia. Commissioned in June 2013 to create this dance video in response to experiencing a series of 3-hour floats in sensory isolation tanks.",
+    "main-image": null,
+    "more-images": [],
+    "video": "https://vimeo.com/72050625"
+  },
+  {
+    "name": "this is how we disappear",
+    "description": "A dance collaboration with bobbevy. Live music performance using custom synthesizers and sequencers built for the project in Pure Data. Presented at Dance+ at Conduit 2012; July 2012 at Danceworks Performance Company in Milwaukie; NW New Works Festival at On the Boards, June 14th-16th 2013; and PICA's Time Based Art Festival June 13-16th 2013.",
+    "main-image": "Screen Shot 2017-04-10 at 10.54.53 PM.png",
+    "more-images": ["Screen Shot 2017-04-10 at 10.54.44 PM.png", "Screen Shot 2017-04-10 at 10.54.34 PM.png"],
+    "video": null
+  },
+  {
+    "name": "a public experiment",
+    "description": "A physical object facilitates audience interaction and in turn generates sound/music for a dancer (Suniti Dervnosek). A Teensy++ microcontroller takes input from 3 buttons, 1 switch, and 1 potentiometer, and in turn sends Midi data to a patch written in Pure Data to generate audio.",
+    "main-image": "10tinybox1.jpg",
+    "more-images": ["8_10tinygutssmall.jpg"],
+    "video": null
+  },
+  {
+    "name": "808 Kicks",
+    "description": "A DIY clone of the classic TR-808 kickdrum. Details and circuit boards are on GitHub.",
+    "main-image": "13_808bd_2_2.png",
+    "more-images": ["13_IMAG0720s.jpg", "13_IMAG0723s.jpg", "13_IMAG0724s.jpg", "808_schematic.jpg", "808bd_2_2.png"],
+    "video": null
+  },
+  {
+    "name": "Music for a Non-Profit",
+    "description": "Composition and sound design pieces for Mercy Corps.",
+    "main-image": "Screen Shot 2017-04-10 at 11.25.42 PM.png",
+    "more-images": [],
+    "video": "https://vimeo.com/26885861"
+  },
+  {
+    "name": "Los Datos",
+    "description": "Functional music for professional relaxation parties.",
+    "main-image": null,
+    "more-images": [],
+    "video": "https://www.youtube.com/watch?v=9hSm1SGwJNs"
+  }
+]
