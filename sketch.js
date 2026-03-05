@@ -13,6 +13,11 @@ let cnv;
 let contentG;
 let cubeSize;
 
+let wHovered = false;
+let biohovered = false;
+
+let galleryMode = false;
+
 // wind params
 const WIND_SCALE = 0.002;
 const WIND_STRENGTH = 0.08;
@@ -62,7 +67,7 @@ function draw() {
     e.show();
   });
   
-  checkForMouseHoverOvercube();
+  //checkForMouseHoverOvercube();
 
   // resolve collisions
   for (let i = 0; i < particles.length; i++) {
@@ -96,26 +101,25 @@ function draw() {
   const wright = workCenterX + workW * 0.5;
   const wtop = workCenterY - workH * 0.5;
   const wbottom = workCenterY + workH * 0.5;
-  const wHovered = mouseX >= wleft && mouseX <= wright && mouseY >= wtop && mouseY <= wbottom;
+  wHovered = mouseX >= wleft && mouseX <= wright && mouseY >= wtop && mouseY <= wbottom;
   push();
   // translate from center for webgl
   translate(-width/2 + workCenterX, -height/2 + workCenterY, 20);
   strokeWeight(4);
   stroke(turquoise);
   rectMode(CENTER);
-  if (wHovered) {
-    fill(gold);
-  } else {
-    noFill();
-  }
-  rect(0, 0, workW, workH);
 
-  if (wHovered) {
+  if (wHovered || galleryMode) {
+    fill(gold);
     changeCubesToImages(true); //change cube faces to project images
     expandCubesToGrid(); //expand cubes into grid layout
+    galleryMode = true;
     //showVimeoBackground();
+  }else{
+    noFill();
   }
 
+   rect(0, 0, workW, workH);
   // label
   fill(0);
   noStroke();
@@ -135,7 +139,7 @@ function draw() {
   const bright = bioCenterX + bioW * 0.5;
   const btop = bioCenterY - bioH * 0.5;
   const bbottom = bioCenterY + bioH * 0.5;
-  const biohovered = mouseX >= bleft && mouseX <= bright && mouseY >= btop && mouseY <= bbottom;
+  biohovered = mouseX >= bleft && mouseX <= bright && mouseY >= btop && mouseY <= bbottom;
   push();
   // draw in WEBGL space (translate from center)
   translate(-width/2 + bioCenterX, -height/2 + bioCenterY, 20);
@@ -158,6 +162,23 @@ function draw() {
   textWrap(WORD);
   text("BIO", 0, 0, bioW);
   pop();
+}
+
+function mouseClicked() {
+  if(wHovered && galleryMode){ //a way to get out of gallery mode
+    galleryMode = false;
+  }
+  if(wHovered && !galleryMode){
+    galleryMode = true;
+  }
+  
+  if(biohovered){
+    //hideVimeo();
+    galleryMode = false;
+    changeCubesToImages(false); //revert to cubes
+    returnCubesToParticles(); //move cubes back to particle positions
+  }
+
 }
 
 class Particle{
@@ -455,23 +476,25 @@ function expandCubesToGrid() {
   });
 }
 
-function checkForMouseHoverOvercube(){
-  let hoveringAny = false;
-  for (let p of particles) {
-    const screenPos = createVector(p.position.x - width / 2, p.position.y - height / 2);
-    const d = dist(screenPos.x, screenPos.y, mouseX - width / 2, mouseY - height / 2);
-    if (d < p.size/2) {
-      // moveOneCubeToGrid(p); // mouse is hovering over this cube
-      changeCubesToImages(true); // show images when hovering any cube
-      expandCubesToGrid();
-      hoveringAny = true; 
-    }
-  }
-  if (!hoveringAny) {
-    changeCubesToImages(false); // revert to cubes when not hovering any
-    returnCubesToParticles(); // move cubes back to particle positions
-  }
-}
+//yanked for now - do something else with hover
+
+// function checkForMouseHoverOvercube(){
+//   let hoveringAny = false;
+//   for (let p of particles) {
+//     const screenPos = createVector(p.position.x - width / 2, p.position.y - height / 2);
+//     const d = dist(screenPos.x, screenPos.y, mouseX - width / 2, mouseY - height / 2);
+//     if (d < p.size/2) {
+//       // moveOneCubeToGrid(p); // mouse is hovering over this cube
+//       changeCubesToImages(true); // show images when hovering any cube
+//       expandCubesToGrid();
+//       hoveringAny = true; 
+//     }
+//   }
+//   if (!hoveringAny) {
+//     changeCubesToImages(false); // revert to cubes when not hovering any
+//     returnCubesToParticles(); // move cubes back to particle positions
+//   }
+// }
 
 function moveOneCubeToGrid(p) {
   const cols = ceil(sqrt(particles.length));
