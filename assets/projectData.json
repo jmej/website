@@ -3,6 +3,7 @@
     "name": "Unknown Atmospheres at Hopscotch",
     "description": "Unknown Atmospheres is an installation that immerses people in a cube of sound and light. I developed a midi driven system for over 7000 LEDs and programmed them to perform synchronized choreographic gestures alongside a powerful multichannel sonic score by Seth Nehil.",
     "main-image": "hopscotch1.jpg",
+    "catagory" : "led" //4 catagories? sound, video art, programming , teaching??
     "more-images":  [
       "6616cc53d701807fe6edb1ba_ua_banner.jpg",
       "6616cc540907cab4daaad35a_ua_video.jpg",
