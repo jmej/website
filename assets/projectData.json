@@ -1,16 +1,28 @@
 [
+    {
+    "name": "Unknown Atmospheres at Hopscotch",
+    "description": "Unknown Atmospheres is an installation that immerses people in a cube of sound and light. I developed a midi driven system for over 7000 LEDs and programmed them to perform synchronized choreographic gestures alongside a powerful multichannel sonic score by Seth Nehil.",
+    "main-image": "hopscotch1.jpg",
+    "more-images":  [
+      "6616cc53d701807fe6edb1ba_ua_banner.jpg",
+      "6616cc540907cab4daaad35a_ua_video.jpg",
+      "6616d3f3ef21549f79a4227a_ua_landscape1.jpg",
+      "6616d3f68d078938e2a49307_ua_landscape2.jpg"
+    ],
+    "video": "https://vimeo.com/932979322"
+  },
   {
     "name": "Creative Coding and Interactivity Lab at PCC",
     "description": "I co-designed and teach the Creative Coding Certificate and Degree programs at Portland Community College, Cascade. Part of this initiative was designing our Interactivity Lab that now serves as a hub for students working at these intersections of art and technology. PCC's Interactivity Lab is a maker space housed within the Music and Sonic Arts program in room 223 of the Moriarty Arts & Humanities Building. The Interactivity Lab supports our Creative Coding courses with 10 full electronics workbenches for work with sensors and microcontrollers, an 8′ by 10′ commercial LED wall, projectors, mappable objects, computer controllable lasers. The Interactivity Lab includes emerging technologies like VR/AR alongside established technologies such as Arduino, sensors, projection mapping and DMX light control. The lab is staffed by students who are learning and using all of these skills in and out of classes.",
-    "main-image": "P1140049.JPG",
-    "more-images": ["P2130736.JPG", "P2130768.JPG", "P1140014.JPG", "interactivity-lab-500x334.jpg"],
+    "main-image": "P1140049.jpg",
+    "more-images": ["P2130736.jpg", "P2130768.jpg", "P1140014.jpg", "interactivity-lab-500x334.jpg"],
     "video": null
   },
   {
     "name": "unityGain",
     "description": "I designed and built a High Density Loudspeaker Array (HDLA) at Portland Community College called unityGain. unityGain is a 32 channel Meyer speaker system driven by a rackmount PC, a 32 channel Orion interface and spatialization software that I wrote in Pure Data, with a Lemur front end. In creating this system I had three primary goals: to build a high quality, excellent sounding system capable of ambisonic, vbap, and other spatialization techniques; to create a platform making these exciting new surround sound formats accessible to artists outside of traditional research institutions; and to get students involved in every aspect of system design, implementation, and event production. I wrote software in Pure Data implementing Ville Pulkki's Vector Based Amplitude Panning (VBAP) algorithms to spatialize eight discrete hardware inputs to a circular speaker configuration of the system's 32 channels, with a UI for Lemur running on an iPad.",
-    "main-image": "unityGain1.JPG",
-    "more-images": ["interactivity_lab2.JPG"],
+    "main-image": "unityGain1.jpg",
+    "more-images": ["interactivity_lab2.jpg"],
     "video": null
   },
   {
@@ -43,7 +55,7 @@
   },
   {
     "name": "Light Noise",
-    "description": "Light Noise was a collaboration between myself and Lu Yim, with dancers keyon gaskin, Taka Yamamoto, and Leah Wilmoth. Performed at Disjecta August 23rd, 24th, and 25th of 2013.",
+    "description": "Light Noise was a collaboration between with Lu Yim, with dancers keyon gaskin, Taka Yamamoto, and Leah Wilmoth. Performed at Disjecta August 23rd, 24th, and 25th of 2013.",
     "main-image": "LIGHTNOISE_23web_670.jpg",
     "more-images": ["LIGHTNOISE_24web_670.jpg", "LIGHTNOISE_25web-1_670.jpg", "LIGHTNOISE_22web_670.jpg", "2_lightnoise1.jpg", "2_lightnoise2.jpg"],
     "video": "https://vimeo.com/94094383"
@@ -65,35 +77,21 @@
   {
     "name": "Light Wash",
     "description": "LIGHT WASH was an immersive, interactive, site-specific audio-visual installation at Composition Gallery. 5 channels of generative, evolving sound and 6 channels of highly saturated colored light filled the gallery creating a space for reflection, reaction and restoration. 9 color temperatures slowly followed 9 vowels through minimal and endless combinations. On closing night, 6 sound artists including Mejia presented short audio-visual performances utilizing the installation as their instrument, each given the same limited toolset and communicating with the installation over WiFi using OSC.",
-    "main-image": "27_light_wash_lucy_small.jpg",
+    "main-image": "27_light_wash_lu_small.jpg",
     "more-images": ["27_light_wash_pd.jpg", "27_light_wash1.jpg", "27_light_wash4.jpg"],
-    "video": null
-  },
-  {
-    "name": "Serpentine Dance",
-    "description": "A video document of a collaboration with Jennifer West. Commissioned by PICA TBA Fest 2014, curated by Kristan Kennedy for visual arts exhibition 'As round as an apple, as deep as a cup.' Performed live for two nights in September inside Jennifer West's 'Flashlight Filmstrip Projections' installation. Serpentine Dance: Connie D. Moore. Synthesizer: Jesse Mejia. Theremin: Mark Keppinger. Choreography and Serpentine Costume: Maranee Sanders. Original Score Composed by Sue Harshe (2005), re-interpreted by Jesse Mejia and Mark Keppinger, 2014.",
-    "main-image": "Screen Shot 2017-04-10 at 10.39.34 PM.png",
-    "more-images": ["Screen Shot 2017-04-10 at 10.40.28 PM.png"],
     "video": null
   },
   {
     "name": "CHOIR",
     "description": "CHOIR is an ongoing community singing group focused on learning and performing choral music by composers such as Arvo Part and Ola Gjeilo, led by Jesse Mejia. Rehearsals are held on Saturday afternoons, working through difficult but rewarding compositions to build an adventurous repertoire. CHOIR provides sheet music, space and a focused learning environment for singers of all skill levels, and seeks out opportunities to perform in unusual contexts such as art installations or multimedia performance pieces. CHOIR is an experiment in musical pedagogy, a DIY community group and a contemporary music performance ensemble. Supported in part by the Regional Arts & Culture Council in 2017.",
-    "main-image": null,
+    "main-image": "25_dance+_1_small.jpg",
     "more-images": [],
     "video": "https://vimeo.com/151077300"
   },
   {
-    "name": "Modular Improvisations",
-    "description": "Improvisations made using custom self-built analog synthesizers and control systems.",
-    "main-image": null,
-    "more-images": [],
-    "video": null
-  },
-  {
     "name": "Float",
     "description": "Float is a video made in collaboration with video artist Seth Nehil and dance artist Taka Yamamoto. Sound created by Jesse Mejia. Commissioned in June 2013 to create this dance video in response to experiencing a series of 3-hour floats in sensory isolation tanks.",
-    "main-image": null,
+    "main-image": "Screen Shot 2017-04-10 at 10.49.16 PM.png",
     "more-images": [],
     "video": "https://vimeo.com/72050625"
   },
@@ -117,19 +115,5 @@
     "main-image": "13_808bd_2_2.png",
     "more-images": ["13_IMAG0720s.jpg", "13_IMAG0723s.jpg", "13_IMAG0724s.jpg", "808_schematic.jpg", "808bd_2_2.png"],
     "video": null
-  },
-  {
-    "name": "Music for a Non-Profit",
-    "description": "Composition and sound design pieces for Mercy Corps.",
-    "main-image": "Screen Shot 2017-04-10 at 11.25.42 PM.png",
-    "more-images": [],
-    "video": "https://vimeo.com/26885861"
-  },
-  {
-    "name": "Los Datos",
-    "description": "Functional music for professional relaxation parties.",
-    "main-image": null,
-    "more-images": [],
-    "video": "https://www.youtube.com/watch?v=9hSm1SGwJNs"
   }
 ]

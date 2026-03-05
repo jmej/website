@@ -32,8 +32,10 @@ function preload() {
     projects = Object.values(data).map(Project.fromJSON);
     console.log(data);
     for (let i = 0; i < projects.length; i++) {
-      projectImages[i] = loadImage("assets/" + encodeURIComponent(projects[i].mainImage))
-      console.log("loading an image for project " + projects[i].name);
+      if(projects[i].mainImage){
+        projectImages[i] = loadImage("assets/" + encodeURIComponent(projects[i].mainImage))
+        console.log("loading an image for project " + projects[i].name);
+      }
     }
   });
 }
