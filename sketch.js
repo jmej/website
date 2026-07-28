@@ -16,7 +16,18 @@ let contentG;
 let cubeSize;
 
 let wHovered = false;
+let bioData;                        // loaded from assets/bio.json
+let bioImage;                       // loaded from bioData.image path
+let bioMode = false;                // true when the bio overlay is open
+let bioScrollY = 0;
+let bioOverlay;
+
 let biohovered = false;
+
+let contactMode = false;             // true when the contact overlay is open
+let contactForm;
+let contacthovered = false;
+let contactSubmitted = false;       // true after successful form submission
 
 let galleryMode = false;
 let exitHovered = false;
@@ -39,6 +50,10 @@ const DESC_LINE_RATIO = 0.020;   // line height as fraction of screen width (lar
 const WIND_SCALE = 0.002;
 const WIND_STRENGTH = 0.08;
 const WIND_TIME_SCALE = 0.0002;
+
+// ── Contact form ─────────────────────────────────────────────
+const FORMSPREE_ID = 'YOUR_FORM_ID'; // replace with your Formspree form ID
+const FORMSPREE_URL = `https://formspree.io/f/${FORMSPREE_ID}`;
 
 //cube rotation
 let currentRot = { x: 0, y: 0 };
@@ -65,6 +80,9 @@ function preload() {
       }
     }
   });
+  // load bio data and image
+  loadJSON('assets/bio.json', data => { bioData = data; });
+  bioImage = loadImage('assets/' + encodeURIComponent('P1140049.jpg'));
 }
 
 function setup() {
@@ -81,6 +99,9 @@ function setup() {
   textFont(header);
   projectOverlay = createGraphics(width, height); // 2D overlay for project box
   projectOverlay.textFont(header);
+  bioOverlay = createGraphics(width, height); // 2D overlay for bio box
+  bioOverlay.textFont(header);
+  createContactForm(); // p5.js DOM overlay for the contact form
   createVimeoIframe(); // create iframe (hidden by default)
 
   // Listen for Vimeo's postMessage "play" event to dismiss the loading text.
@@ -92,6 +113,190 @@ function setup() {
         showVimeoBackground();
       }
     } catch (_) { /* ignore */ }
+  });
+}
+
+// ── Contact form (p5.js DOM overlay, no separate CSS) ────────
+function createContactForm() {
+  // Full-screen backdrop
+  contactForm = createDiv('');
+  contactForm.style('position', 'fixed');
+  contactForm.style('left', '0');
+  contactForm.style('top', '0');
+  contactForm.style('width', '100vw');
+  contactForm.style('height', '100vh');
+  contactForm.style('background', 'rgba(64,224,208,0.88)'); // tTurquoise
+  contactForm.style('display', 'flex');
+  contactForm.style('align-items', 'center');
+  contactForm.style('justify-content', 'center');
+  contactForm.style('z-index', '10000');
+  contactForm.style('pointer-events', 'auto');
+
+  // Centered box (60 % × 60 %) with magenta border
+  const box = createDiv('');
+  box.parent(contactForm);
+  box.style('width', '60vw');
+  box.style('height', '60vh');
+  box.style('border', '4px solid rgb(255,0,255)');         // magenta
+  box.style('box-sizing', 'border-box');
+  box.style('background', '#fff');
+  box.style('display', 'flex');
+  box.style('flex-direction', 'column');
+  box.style('padding', '2vw');
+  box.style('position', 'relative');
+  box.style('overflow', 'auto');
+  box.style('font-family', 'Roboto, sans-serif');
+
+  // "CONTACT" title (Team Athletics font)
+  const title = createDiv('CONTACT');
+  title.parent(box);
+  title.style('color', 'rgb(255,200,87)');                  // gold
+  title.style('font-family', '"Team Athletics Freeware", sans-serif');
+  title.style('font-size', `${width * 0.03}px`);
+  title.style('margin-bottom', '1.5vh');
+
+  // Close "X" button (top-right corner of the box)
+  const closeBtn = createDiv('✕');
+  closeBtn.parent(box);
+  closeBtn.style('position', 'absolute');
+  closeBtn.style('top', '1vw');
+  closeBtn.style('right', '1.5vw');
+  closeBtn.style('font-size', '24px');
+  closeBtn.style('cursor', 'pointer');
+  closeBtn.style('color', '#000');
+  closeBtn.style('font-family', 'sans-serif');
+  closeBtn.style('line-height', '1');
+  closeBtn.style('user-select', 'none');
+  closeBtn.mouseClicked(() => { contactMode = false; contactForm.hide(); });
+
+  // Name field
+  createSpan('Name').parent(box).style('font-size', '14px');
+  const nameInp = createInput('');
+  nameInp.parent(box);
+  nameInp.attribute('type', 'text');
+  nameInp.attribute('name', 'name');
+  nameInp.attribute('required', '');
+  nameInp.style('width', '100%');
+  nameInp.style('padding', '8px');
+  nameInp.style('margin-bottom', '1.5vh');
+  nameInp.style('border', '1px solid #ccc');
+  nameInp.style('border-radius', '4px');
+  nameInp.style('box-sizing', 'border-box');
+  nameInp.style('font-size', '14px');
+
+  // Email field
+  createSpan('Email').parent(box).style('font-size', '14px');
+  const emailInp = createInput('');
+  emailInp.parent(box);
+  emailInp.attribute('type', 'email');
+  emailInp.attribute('name', '_replyto');
+  emailInp.attribute('required', '');
+  emailInp.style('width', '100%');
+  emailInp.style('padding', '8px');
+  emailInp.style('margin-bottom', '1.5vh');
+  emailInp.style('border', '1px solid #ccc');
+  emailInp.style('border-radius', '4px');
+  emailInp.style('box-sizing', 'border-box');
+  emailInp.style('font-size', '14px');
+
+  // Message field
+  createSpan('Message').parent(box).style('font-size', '14px');
+  const msgInp = createElement('textarea');
+  msgInp.parent(box);
+  msgInp.attribute('name', 'message');
+  msgInp.attribute('required', '');
+  msgInp.style('width', '100%');
+  msgInp.style('min-height', '15vh');
+  msgInp.style('padding', '8px');
+  msgInp.style('margin-bottom', '1.5vh');
+  msgInp.style('border', '1px solid #ccc');
+  msgInp.style('border-radius', '4px');
+  msgInp.style('box-sizing', 'border-box');
+  msgInp.style('font-size', '14px');
+  msgInp.style('resize', 'vertical');
+  msgInp.style('font-family', 'Roboto, sans-serif');
+
+  // Submit button
+  const btn = createButton('SEND');
+  btn.parent(box);
+  btn.style('align-self', 'flex-end');
+  btn.style('padding', '10px 30px');
+  btn.style('background', 'rgb(64,224,208)');               // turquoise
+  btn.style('color', '#000');
+  btn.style('border', 'none');
+  btn.style('border-radius', '4px');
+  btn.style('font-size', '16px');
+  btn.style('cursor', 'pointer');
+  btn.style('font-weight', 'bold');
+  btn.mousePressed(submitContactForm);
+
+  // Success message (hidden by default)
+  const success = createDiv('Thanks — I\'ll get back to you soon!');
+  success.parent(box);
+  success.style('display', 'none');
+  success.style('color', 'rgb(64,224,208)');
+  success.style('font-size', '18px');
+  success.style('text-align', 'center');
+  success.style('margin-top', 'auto');
+  success.style('margin-bottom', 'auto');
+
+  // Store references for show/hide/reset
+  contactForm._box = box;
+  contactForm._nameInp = nameInp;
+  contactForm._emailInp = emailInp;
+  contactForm._msgInp = msgInp;
+  contactForm._btn = btn;
+  contactForm._success = success;
+
+  contactForm.hide();
+
+  // Close when clicking the backdrop (not the box)
+  contactForm.mouseClicked(() => {
+    contactMode = false;
+    contactForm.hide();
+  });
+  // Prevent click inside the box from propagating to the backdrop
+  box.mouseClicked(() => false);
+}
+
+function submitContactForm() {
+  const cf = contactForm;
+  if (!cf) return;
+  const name = cf._nameInp.value();
+  const email = cf._emailInp.value();
+  const msg = cf._msgInp.value();
+  if (!name || !email || !msg) return;
+
+  // Disable button while sending
+  cf._btn.attribute('disabled', '');
+  cf._btn.html('SENDING…');
+
+  fetch(FORMSPREE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({ name, _replyto: email, message: msg })
+  }).then(res => {
+    if (res.ok) {
+      cf._box.style('display', 'none');
+      cf._success.style('display', 'block');
+      // Auto-close after 3 seconds
+      setTimeout(() => {
+        contactMode = false;
+        contactForm.hide();
+        cf._box.style('display', 'flex');   // restore for next open
+        cf._success.style('display', 'none');
+        cf._nameInp.value('');
+        cf._emailInp.value('');
+        cf._msgInp.value('');
+      }, 3000);
+    } else {
+      alert('Something went wrong. Please try again or email me directly.');
+    }
+  }).catch(() => {
+    alert('Network error. Please try again.');
+  }).finally(() => {
+    cf._btn.removeAttribute('disabled');
+    cf._btn.html('SEND');
   });
 }
 
@@ -241,8 +446,39 @@ function draw() {
   text("BIO", 0, 0, bioW);
   pop();
 
-  // exit button (appears centered when in gallery mode)
-  if (galleryMode) {
+  //contact box (bottom-left, symmetric to BIO at bottom-right)
+  const contactCenterX = width * 0.10;
+  const contactCenterY = height - height * 0.10;
+  const contactW = width * 0.15;
+  const contactH = height * 0.15;
+  const cleft = contactCenterX - contactW * 0.5;
+  const cright = contactCenterX + contactW * 0.5;
+  const ctop = contactCenterY - contactH * 0.5;
+  const cbottom = contactCenterY + contactH * 0.5;
+  contacthovered = mouseX >= cleft && mouseX <= cright && mouseY >= ctop && mouseY <= cbottom;
+  push();
+  translate(-width/2 + contactCenterX, -height/2 + contactCenterY, 20);
+  strokeWeight(4);
+  stroke(turquoise);
+  rectMode(CENTER);
+  if (contacthovered) {
+    fill(gold);
+  } else {
+    fill(turquoise);
+  }
+  rect(0, 0, contactW, contactH);
+
+  fill(0);
+  noStroke();
+  textAlign(CENTER, CENTER);
+  textSize(width * 0.05);
+  textLeading(width * 0.05);
+  textWrap(WORD);
+  text("email", 0, 0, contactW);
+  pop();
+
+  // exit button (appears centered when gallery/bio/contact mode is active)
+  if (galleryMode || bioMode || contactMode) {
     const exitBtnW = width * 0.1;
     const exitBtnH = height * 0.08;
     const exitX = width / 2;
@@ -535,6 +771,164 @@ function draw() {
     plane(width, height);
     pop();
   }
+
+  // ── bio box (same layout as project box) ────────────────────
+  if (bioMode && bioData) {
+    const boxW = width * 0.6;
+    const boxH = height * 0.6;
+    const boxX = (width - boxW) / 2;
+    const boxY = (height - boxH) / 2;
+    const margin = width * 0.04;
+    const descMargin = width * 0.07;
+
+    const g = bioOverlay;
+    g.clear();
+
+    // dimmed backdrop
+    g.noStroke();
+    g.fill(tTurquoise);
+    g.rect(0, 0, width, height);
+
+    // centered border with title
+    g.strokeWeight(4);
+    g.stroke(magenta);
+    g.noFill();
+    g.rect(boxX, boxY, boxW, boxH);
+
+    g.fill(gold);
+    g.noStroke();
+    g.textAlign(LEFT, TOP);
+    g.textSize(width * 0.03);
+    g.textLeading(width * 0.035);
+    const titleY = boxY + margin;
+    g.text('About', boxX + margin, titleY, boxW - margin * 2);
+
+    // content area
+    g.fill(0);
+    g.textSize(width * DESC_TEXT_RATIO);
+    g.textLeading(width * DESC_LINE_RATIO);
+    const contentX = boxX + descMargin;
+    const contentW = boxW - descMargin * 2;
+    const contentTopY = titleY + width * 0.05;
+    const contentBottomY = boxY + boxH - margin;
+    const contentH = contentBottomY - contentTopY;
+
+    g.textFont(descFont);
+    const lineH = width * DESC_LINE_RATIO;
+    const paraGap = lineH * 0.6;
+    const imageMaxH = height * 0.3;
+    const sentenceRe = /(?<=\.)\s+(?=[A-Z0-9])/;
+
+    // same line counter used by the project box
+    function countWrappedLines(str, maxW) {
+      if (!str.trim()) return 0;
+      const rawLines = str.split('\n');
+      let total = 0;
+      for (const ln of rawLines) {
+        if (!ln.trim()) continue;
+        const words = ln.split(' ');
+        let lineCount = 1;
+        let lineW = 0;
+        for (const word of words) {
+          const wordW = g.textWidth(word + ' ');
+          if (lineW + wordW > maxW && lineW > 0) {
+            lineCount++;
+            lineW = wordW;
+          } else {
+            lineW += wordW;
+          }
+        }
+        total += lineCount;
+      }
+      return total;
+    }
+
+    // ── measurement pass ──
+    let totalH = 0;
+
+    // bio image
+    let bioImgH = 0;
+    if (bioImage && bioImage.width > 0) {
+      bioImgH = Math.min(contentW / (bioImage.width / bioImage.height), imageMaxH);
+      totalH += bioImgH + paraGap;
+    }
+
+    // bio body text (split into sentences)
+    const body = bioData.body || '';
+    const sentences = body.split(sentenceRe);
+    for (let i = 0; i < sentences.length; i++) {
+      const s = sentences[i].trim();
+      if (!s) continue;
+      totalH += countWrappedLines(s, contentW) * lineH;
+      totalH += paraGap;
+    }
+
+    const scrollMax = Math.max(0, totalH - contentH);
+    bioScrollY = constrain(bioScrollY, 0, scrollMax);
+
+    // ── render pass ──
+    g.push();
+    g.drawingContext.save();
+    g.drawingContext.beginPath();
+    g.drawingContext.rect(contentX, contentTopY, contentW, contentH);
+    g.drawingContext.clip();
+
+    let drawY = contentTopY - bioScrollY;
+    g.textFont(descFont);
+    g.textSize(width * DESC_TEXT_RATIO);
+    g.textLeading(lineH);
+
+    // bio image
+    if (bioImage && bioImage.width > 0) {
+      const aspect = bioImage.width / bioImage.height;
+      const displayH = Math.min(contentW / aspect, imageMaxH);
+      const displayW = displayH * aspect;
+      const imgX = contentX + (contentW - displayW) / 2;
+      g.image(bioImage, imgX, drawY, displayW, displayH);
+      drawY += displayH + paraGap;
+    }
+
+    // bio body text
+    g.fill(0);
+    for (const sentence of sentences) {
+      const s = sentence.trim();
+      if (!s) continue;
+      const sLines = countWrappedLines(s, contentW);
+      g.text(s, contentX, drawY, contentW);
+      drawY += sLines * lineH + paraGap;
+    }
+
+    g.drawingContext.restore();
+    g.pop();
+
+    // scroll indicators
+    const indicatorSize = width * 0.02;
+    const indicatorRight = boxX + boxW - margin * 0.5;
+    const indicatorCenterY = (contentTopY + contentBottomY) / 2;
+
+    if (bioScrollY > 0) {
+      g.fill(0);
+      g.noStroke();
+      g.triangle(indicatorRight, indicatorCenterY - indicatorSize * 2.5,
+        indicatorRight - indicatorSize * 1.5, indicatorCenterY - indicatorSize * 1,
+        indicatorRight + indicatorSize * 1.5, indicatorCenterY - indicatorSize * 1);
+    }
+    if (bioScrollY < scrollMax) {
+      g.fill(0);
+      g.noStroke();
+      g.triangle(indicatorRight, indicatorCenterY + indicatorSize * 2.5,
+        indicatorRight - indicatorSize * 1.5, indicatorCenterY + indicatorSize * 1,
+        indicatorRight + indicatorSize * 1.5, indicatorCenterY + indicatorSize * 1);
+    }
+
+    // render as textured plane
+    push();
+    translate(0, 0, 250);
+    texture(g);
+    noStroke();
+    plane(width, height);
+    pop();
+  }
 }
 
 function mouseClicked() {
@@ -552,6 +946,8 @@ function mouseClicked() {
   }
   if(wHovered && !galleryMode){
     galleryMode = true;
+    bioMode = false;
+    if (contactMode) { contactMode = false; contactForm.hide(); }
   }
   
   if(exitHovered && galleryMode){
@@ -559,6 +955,15 @@ function mouseClicked() {
     projectMode = false;
     changeCubesToImages(false);
     returnCubesToParticles();
+    bioMode = false;
+    if (contactMode) { contactMode = false; contactForm.hide(); }
+  }
+  if(exitHovered && bioMode){
+    bioMode = false;
+  }
+  if(exitHovered && contactMode){
+    contactMode = false;
+    contactForm.hide();
   }
 
   if(biohovered){
@@ -566,6 +971,21 @@ function mouseClicked() {
     projectMode = false;
     changeCubesToImages(false); //revert to cubes
     returnCubesToParticles(); //move cubes back to particle positions
+    if (contactMode) { contactMode = false; contactForm.hide(); }
+    bioMode = true;
+    bioScrollY = 0;
+    return;
+  }
+
+  if(contacthovered){
+    galleryMode = false;
+    projectMode = false;
+    bioMode = false;
+    changeCubesToImages(false);
+    returnCubesToParticles();
+    contactMode = true;
+    contactForm.show();
+    return;
   }
 
   // click on an image inside a project box
@@ -604,6 +1024,18 @@ function mouseClicked() {
     if (outside) {
       projectMode = false;
     }
+  } else if (bioMode && !exitHovered) {
+    // close bio box when clicking outside
+    const bw = width * 0.6;
+    const bh = height * 0.6;
+    const bx = (width - bw) / 2;
+    const by = (height - bh) / 2;
+    if (mouseX < bx || mouseX > bx + bw || mouseY < by || mouseY > by + bh) {
+      bioMode = false;
+    }
+  } else if (contactMode && !exitHovered) {
+    contactMode = false;
+    contactForm.hide();
   }
 }
 
@@ -611,6 +1043,10 @@ function mouseWheel(event) {
   if (projectMode) {
     projectScrollY += event.delta;
     return false; // prevent page scroll
+  }
+  if (bioMode) {
+    bioScrollY += event.delta;
+    return false;
   }
 }
 
@@ -627,6 +1063,13 @@ function keyPressed() {
       changeCubesToImages(false);
       returnCubesToParticles();
     }
+  }
+  if (keyCode === ESCAPE && bioMode) {
+    bioMode = false;
+  }
+  if (keyCode === ESCAPE && contactMode) {
+    contactMode = false;
+    contactForm.hide();
   }
 }
 
