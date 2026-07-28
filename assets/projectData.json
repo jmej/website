@@ -1,7 +1,7 @@
 [
     {
     "name": "Unknown Atmospheres at Hopscotch",
-    "description": "Unknown Atmospheres is an installation that immerses people in a cube of sound and light. I developed a midi driven system for over 7000 LEDs and programmed them to perform synchronized choreographic gestures alongside a powerful multichannel sonic score by Seth Nehil.",
+    "description": "[videothumb:1] Unknown Atmospheres is an installation at Hopscotch's Portland, San Antonio, and LA locations.\n\n Visitors are immersed in a valumetric cube of sound and light. \n\n I developed a midi driven system programming framework over thousands of artnet LEDs. \n\n This enabled me to programmed synchronized choreographic gestures alongside the powerful multichannel sonic score by Seth Nehil.",
     "main-image": "hopscotch1.jpg",
     "catagory" : "led", 
     "more-images":  [
@@ -13,22 +13,22 @@
     "video": "https://vimeo.com/932979322"
   },
   {
-    "name": "Creative Coding and Interactivity Lab at PCC",
-    "description": "I co-designed and teach the Creative Coding Certificate and Degree programs at Portland Community College, Cascade. Part of this initiative was designing our Interactivity Lab that now serves as a hub for students working at these intersections of art and technology. PCC's Interactivity Lab is a maker space housed within the Music and Sonic Arts program in room 223 of the Moriarty Arts & Humanities Building. The Interactivity Lab supports our Creative Coding courses with 10 full electronics workbenches for work with sensors and microcontrollers, an 8′ by 10′ commercial LED wall, projectors, mappable objects, computer controllable lasers. The Interactivity Lab includes emerging technologies like VR/AR alongside established technologies such as Arduino, sensors, projection mapping and DMX light control. The lab is staffed by students who are learning and using all of these skills in and out of classes.",
-    "main-image": "P1140049.jpg",
-    "more-images": ["P2130736.jpg", "P2130768.jpg", "P1140014.jpg", "interactivity-lab-500x334.jpg"],
+    "name": "Creative Coding at PCC",
+    "description": "I co-designed and teach the Creative Coding Certificate and Degree programs at Portland Community College, Cascade. \n\n [image:0,1] \n\n We introduce artists to programming, computer science and electronics using tools like p5js, arduino, maxMSP, and touch designer. \n\n Part of this initiative was designing our Interactivity Lab that now serves as a hub for students working at these intersections of art and technology. \n\n PCC's Interactivity Lab is a maker space housed within the Music and Sonic Arts program in room 223 of the Moriarty Arts & Humanities Building.\n\n The Interactivity Lab supports our Creative Coding courses with 15 full electronics workbenches for work with sensors and microcontrollers, an 8′ by 10′ commercial LED wall, projectors, mappable objects, computer controllable lasers. \n\nThe Interactivity Lab includes emerging technologies like VR/AR alongside established technologies such as Arduino, sensors, projection mapping and DMX light control. \n\nThe lab is staffed by students who are learning and using all of these skills in and out of classes.[image:2,3]",
+    "main-image": "P2130736.jpg",
+    "more-images": ["P1140049.jpg", "P2130768.jpg", "P1140014.jpg", "interactivity-lab-500x334.jpg"],
     "video": null
   },
   {
     "name": "unityGain",
-    "description": "I designed and built a High Density Loudspeaker Array (HDLA) at Portland Community College called unityGain. unityGain is a 32 channel Meyer speaker system driven by a rackmount PC, a 32 channel Orion interface and spatialization software that I wrote in Pure Data, with a Lemur front end. In creating this system I had three primary goals: to build a high quality, excellent sounding system capable of ambisonic, vbap, and other spatialization techniques; to create a platform making these exciting new surround sound formats accessible to artists outside of traditional research institutions; and to get students involved in every aspect of system design, implementation, and event production. I wrote software in Pure Data implementing Ville Pulkki's Vector Based Amplitude Panning (VBAP) algorithms to spatialize eight discrete hardware inputs to a circular speaker configuration of the system's 32 channels, with a UI for Lemur running on an iPad.",
+    "description": "I designed and built a High Density Loudspeaker Array (HDLA) at Portland Community College called unityGain. \n\n unityGain is a 32 channel Meyer speaker system driven by motu AVB interfaces and spatialization software that I wrote in Pure Data and MaxMSP. \n\n In creating this system I had three primary goals: to build a high quality, excellent sounding system capable of ambisonic, vbap, and other spatialization techniques; to create a platform making these exciting new surround sound formats accessible to artists outside of traditional research institutions; and to get students involved in every aspect of system design, implementation, and event production.",
     "main-image": "unityGain1.jpg",
     "more-images": ["interactivity_lab2.jpg"],
     "video": null
   },
   {
     "name": "Semaphore",
-    "description": "A multi-layered collaborative project with Audra Wolowiec, the Jaramillo Neuroscience Lab at the University of Oregon, my project CHOIR, and typeface design by Maurann Stein. Commissioned by the Oregon Arts Commission's Percent for Art in Public Places Program and supported by Third Culture Projects. In collaboration with the Neuroscience Lab of Santiago Jaramillo that studies how meaning, memory, and attention are assigned to sounds, Audra Wolowiec created a series of text-based scores as poetic translations of data gathered from the lab and worked with Portland-based Jesse Mejía to compose a vocal piece with CHOIR. The influential lecture by C. P. Snow, The Two Cultures, was used as an underlying structure. Performed October 2016 at the University of Oregon in the Lewis Integrative Science Building, Eugene, OR and the Extradition Series, Portland, OR.",
+    "description": "A multi-layered collaborative project with Audra Wolowiec, the Jaramillo Neuroscience Lab at the University of Oregon, my project CHOIR, and typeface design by Maurann Stein. Commissioned by the Oregon Arts Commission's Percent for Art in Public Places Program and supported by Third Culture Projects. \n\n [image:0,1] In collaboration with the Neuroscience Lab of Santiago Jaramillo that studies how meaning, memory, and attention are assigned to sounds, Audra Wolowiec created a series of text-based scores as poetic translations of data gathered from the lab and worked with Portland-based Jesse Mejía to compose a vocal piece with CHOIR. \n\n [image:5,4] The influential lecture by C P Snow, The Two Cultures, was used as an underlying structure. Performed October 2016 at the University of Oregon in the Lewis Integrative Science Building, Eugene, OR and the Extradition Series, Portland, OR.",
     "main-image": "AW_semaphore_photoGregWahlStephens_1.jpg",
     "more-images": ["semaphore_singers.jpg", "AW_semaphore_photoGregWahlStephens_2.jpg", "semaphore02.jpg", "semaphore03.jpg", "semaphore04.jpg", "semaphore05.jpg", "semaphore06.jpg"],
     "video": null
@@ -42,7 +42,7 @@
   },
   {
     "name": "Exchange",
-    "description": "A public, interactive sound and light installation on Pioneer Square, up for the weekend of June 24th-26th, 2016. Exchange draws people into an unusual musical experience. Frosted LED tubes illuminate and play an accompanying tone as individuals move around the sculptural form. The notes and lights layer and harmonically resonate as multiple peoples' motion trigger the piece simultaneously. Co-designed and created with Ethan Rose. As sole programmer, I programmed microcontrollers to read 18 ultrasonic rangefinder sensors which triggered sound and light behavior in Pure Data. DMX was sent to DMX relays and 72 tubes filled with bright LED strips. Sound design implemented using Karplus-Strong synthesis and spatialized to 9 channels of audio in a circular array. Supported in part by Houseguest, Pioneer Courthouse Square, Inc., Miller Foundation, and Oregon Community Foundation.",
+    "description": "[videothumb:1]A public, interactive sound and light installation on Pioneer Square, up for the weekend of June 24th-26th, 2016. Exchange draws people into an unusual musical experience. Frosted LED tubes illuminate and play an accompanying tone as individuals move around the sculptural form. The notes and lights layer and harmonically resonate as multiple peoples' motion trigger the piece simultaneously. Co-designed and created with Ethan Rose. As sole programmer, I programmed microcontrollers to read 18 ultrasonic rangefinder sensors which triggered sound and light behavior in Pure Data. DMX was sent to DMX relays and 72 tubes filled with bright LED strips. Sound design implemented using Karplus-Strong synthesis and spatialized to 9 channels of audio in a circular array. Supported in part by Houseguest, Pioneer Courthouse Square, Inc., Miller Foundation, and Oregon Community Foundation.",
     "main-image": "exchange_2_opt.jpg",
     "more-images": ["exchange_sensor.jpg", "exchange_1_opt.jpg"],
     "video": "https://vimeo.com/181707592"
@@ -56,7 +56,7 @@
   },
   {
     "name": "Light Noise",
-    "description": "Light Noise was a collaboration between with Lu Yim, with dancers keyon gaskin, Taka Yamamoto, and Leah Wilmoth. Performed at Disjecta August 23rd, 24th, and 25th of 2013.",
+    "description": "[image:4] Light Noise was a collaboration between with Lu Yim, with dancers keyon gaskin, Taka Yamamoto, and Leah Wilmoth. Performed at Disjecta August 23rd, 24th, and 25th of 2013.[image:3,2]",
     "main-image": "LIGHTNOISE_23web_670.jpg",
     "more-images": ["LIGHTNOISE_24web_670.jpg", "LIGHTNOISE_25web-1_670.jpg", "LIGHTNOISE_22web_670.jpg", "2_lightnoise1.jpg", "2_lightnoise2.jpg"],
     "video": "https://vimeo.com/94094383"

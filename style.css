@@ -6,3 +6,10 @@ html, body {
 canvas {
   display: block;
 }
+
+@font-face {
+  font-family: 'Team Athletics Freeware';
+  src: url('assets/Team-Athletics-Freeware.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}

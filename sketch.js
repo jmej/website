@@ -2,6 +2,7 @@ let bioBlurb = "Jesse Mejía is an artist, programmer and educator."
 let projects = []; // populated in preload from projectData.json
 let projectData;
 let projectImages = [];
+let projectMoreImages = [];
 let particles = []; //for now seperating movement logic from project data
 let turquoise;
 let tTurquoise;
@@ -25,6 +26,14 @@ let selectedProjectId = -1;
 let projectScrollY = 0;
 let projectOverlay;
 let descFont;
+
+let videoMode = false;          // true when a full-screen Vimeo is playing
+let videoLoaded = false;        // true once the Vimeo video has started playing
+let imageBounds = [];           // populated during project box render for click detection
+
+// description typography — change these ratios to resize the project body text
+const DESC_TEXT_RATIO = 0.014;   // text size as fraction of screen width
+const DESC_LINE_RATIO = 0.020;   // line height as fraction of screen width (larger than text size for readability)
 
 // wind params
 const WIND_SCALE = 0.002;
@@ -50,6 +59,10 @@ function preload() {
         projectImages[i] = loadImage("assets/" + encodeURIComponent(projects[i].mainImage))
         console.log("loading an image for project " + projects[i].name);
       }
+      projectMoreImages[i] = [];
+      for (let imgPath of projects[i].moreImages) {
+        projectMoreImages[i].push(loadImage("assets/" + encodeURIComponent(imgPath)));
+      }
     }
   });
 }
@@ -69,10 +82,35 @@ function setup() {
   projectOverlay = createGraphics(width, height); // 2D overlay for project box
   projectOverlay.textFont(header);
   createVimeoIframe(); // create iframe (hidden by default)
+
+  // Listen for Vimeo's postMessage "play" event to dismiss the loading text.
+  window.addEventListener('message', function (e) {
+    try {
+      const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+      if (d && typeof d.event === 'string' && d.event === 'play') {
+        videoLoaded = true;
+        showVimeoBackground();
+      }
+    } catch (_) { /* ignore */ }
+  });
 }
 
 function draw() {
   background(0);
+
+  // When a full-screen video is playing, show loading text or keep canvas black
+  if (videoMode) {
+    if (!videoLoaded) {
+      fill(255, 0, 255); // magenta
+      noStroke();
+      textFont(header);
+      textAlign(CENTER, CENTER);
+      textSize(min(width * 0.08, 80));
+      text('LOADING', 0, 0);
+    }
+    return;
+  }
+
   lights();
   particles.forEach(e => {
     e.update();
@@ -127,25 +165,27 @@ function draw() {
     galleryMode = true;
     //showVimeoBackground();
 
-    // hover enlargement on cubes in gallery mode
-    let hoveredP = null;
-    let hoveredDist = Infinity;
-    for (let p of particles) {
-      const d = dist(p.position.x, p.position.y, mouseX, mouseY);
-      if (d < p.size * 0.7 && d < hoveredDist) {
-        hoveredDist = d;
-        hoveredP = p;
+    // hover enlargement on cubes in gallery mode (disabled while project is open)
+    if (!projectMode) {
+      let hoveredP = null;
+      let hoveredDist = Infinity;
+      for (let p of particles) {
+        const d = dist(p.position.x, p.position.y, mouseX, mouseY);
+        if (d < p.size * 0.7 && d < hoveredDist) {
+          hoveredDist = d;
+          hoveredP = p;
+        }
       }
-    }
-    if (hoveredP) {
-      hoveredProjectId = hoveredP.projectId;
-      const cols = ceil(sqrt(particles.length));
-      const cellW = (width * 0.9) / cols;
-      const cellH = (height * 0.9) / cols;
-      const cellSize = min(cellW, cellH) * 0.8;
-      hoveredP.size = lerp(hoveredP.size, cellSize * 1.4, 0.15);
-    } else {
-      hoveredProjectId = -1;
+      if (hoveredP) {
+        hoveredProjectId = hoveredP.projectId;
+        const cols = ceil(sqrt(particles.length));
+        const cellW = (width * 0.9) / cols;
+        const cellH = (height * 0.9) / cols;
+        const cellSize = min(cellW, cellH) * 0.8;
+        hoveredP.size = lerp(hoveredP.size, cellSize * 1.4, 0.15);
+      } else {
+        hoveredProjectId = -1;
+      }
     }
   }else{
     returnCubesToParticles(); // continuously shrink cubes back to original size
@@ -238,6 +278,7 @@ function draw() {
 
   //project box (drawn via 2D overlay for reliable positioning)
   if (projectMode && selectedProjectId >= 0) {
+    imageBounds = []; // reset for this frame
     const proj = projects[selectedProjectId];
     const boxW = width * 0.6;
     const boxH = height * 0.6;
@@ -271,8 +312,8 @@ function draw() {
 
     // description area (uses bigger descMargin)
     g.fill(0);
-    g.textSize(width * 0.016);
-    g.textLeading(width * 0.022);
+    g.textSize(width * DESC_TEXT_RATIO);
+    g.textLeading(width * DESC_LINE_RATIO);
     const descX = boxX + descMargin;
     const descW = boxW - descMargin * 2;
     const descTopY = titleY + width * 0.05;
@@ -281,23 +322,184 @@ function draw() {
 
     // estimate total text height for scroll bounds
     g.textFont(descFont);
-    const totalTextW = g.textWidth(proj.description);
-    const approxLines = Math.ceil(totalTextW / Math.max(1, descW));
-    const lineH = width * 0.022;
-    const totalTextH = approxLines * lineH;
-    const scrollMax = Math.max(0, totalTextH - descH);
+    const lineH = width * DESC_LINE_RATIO;
+    const paraGap = lineH * 0.6;
+    const imageMaxH = height * 0.3;
+    const imageGap = width * 0.01;     // gap between images in a row
+    const markerRe = /^\[(image|videothumb):([\d,]+)\]$/;  // "[image:0,1]" or "[videothumb:0]"
+    const splitRe = /(\[(?:image|videothumb):[\d,]+\])/;
+    const sentenceRe = /(?<=\.)\s+(?=[A-Z0-9])/; // split after period + space + capital/digit
 
-    // clamp scroll
+    // Count wrapped lines (handles \n hard breaks inside text too)
+    function countWrappedLines(str, maxW) {
+      if (!str.trim()) return 0;
+      const rawLines = str.split('\n');
+      let total = 0;
+      for (const ln of rawLines) {
+        if (!ln.trim()) continue;
+        const words = ln.split(' ');
+        let lineCount = 1;
+        let lineW = 0;
+        for (const word of words) {
+          const wordW = g.textWidth(word + ' ');
+          if (lineW + wordW > maxW && lineW > 0) {
+            lineCount++;
+            lineW = wordW;
+          } else {
+            lineW += wordW;
+          }
+        }
+        total += lineCount;
+      }
+      return total;
+    }
+
+    // Draw a play-button overlay (white circle + black triangle) centered at (cx, cy).
+    function drawPlayButton(g, cx, cy, diameter) {
+      if (diameter <= 0) return;
+      const r = diameter / 2;
+      // translucent white circle
+      g.fill(255, 255, 255, 235);
+      g.noStroke();
+      g.ellipse(cx, cy, diameter);
+      // black play triangle pointing right
+      g.fill(0);
+      const s = r * 0.55;
+      g.triangle(
+        cx - s * 0.35, cy - s * 0.55,
+        cx - s * 0.35, cy + s * 0.55,
+        cx + s * 0.65, cy
+      );
+    }
+
+    // parse paragraphs from description (split on blank lines)
+    const paragraphs = proj.description.split('\n\n').filter(s => s.trim());
+
+    // ── measurement pass ──────────────────────────────────────
+    let totalTextH = 0;
+
+    // primary (main) image at the top of the description area
+    // (skip if the project has a video — the user handles those manually)
+    const mainImg = (!proj.video) ? projectImages[selectedProjectId] : null;
+    let mainImgH = 0;
+    if (mainImg && mainImg.width > 0) {
+      mainImgH = Math.min(descW / (mainImg.width / mainImg.height), imageMaxH);
+      totalTextH += mainImgH + paraGap;
+    }
+
+    for (let para of paragraphs) {
+      const parts = para.split(splitRe);
+      for (let part of parts) {
+        if (!part || !part.trim()) continue;
+        const m = part.match(markerRe);
+        if (m) {
+          const indices = m[2].split(',').map(s => parseInt(s.trim()));
+          const imgCount = indices.length;
+          if (imgCount === 0) continue;
+          const totalGap = imageGap * (imgCount - 1);
+          const colW = (descW - totalGap) / imgCount;
+          let rowH = 0;
+          for (let idx of indices) {
+            const img = projectMoreImages[selectedProjectId]?.[idx];
+            if (img && img.width > 0) {
+              const aspect = img.width / img.height;
+              rowH = Math.max(rowH, Math.min(colW / aspect, imageMaxH));
+            }
+          }
+          totalTextH += rowH + paraGap;
+        } else {
+          // text — split into sentences so each starts on its own line
+          const sentences = part.split(sentenceRe);
+          for (let i = 0; i < sentences.length; i++) {
+            const s = sentences[i].trim();
+            if (!s) continue;
+            totalTextH += countWrappedLines(s, descW) * lineH;
+            totalTextH += paraGap; // double break after every period
+          }
+        }
+      }
+    }
+    const scrollMax = Math.max(0, totalTextH - descH);
     projectScrollY = constrain(projectScrollY, 0, scrollMax);
 
-    // clip description area via raw Canvas2D API (more reliable than p5's clip)
+    // ── render pass ──────────────────────────────────────────
     g.push();
     g.drawingContext.save();
     g.drawingContext.beginPath();
     g.drawingContext.rect(descX, descTopY, descW, descH);
     g.drawingContext.clip();
-    g.fill(0);
-    g.text(proj.description, descX, descTopY - projectScrollY, descW);
+
+    let drawY = descTopY - projectScrollY;
+    g.textFont(descFont);
+    g.textSize(width * DESC_TEXT_RATIO);
+    g.textLeading(lineH);
+
+    // primary (main) image
+    if (mainImg && mainImg.width > 0) {
+      const aspect = mainImg.width / mainImg.height;
+      const displayH = Math.min(descW / aspect, imageMaxH);
+      const displayW = displayH * aspect;
+      const imgX = descX + (descW - displayW) / 2;
+      g.image(mainImg, imgX, drawY, displayW, displayH);
+      drawY += displayH + paraGap;
+    }
+
+    for (let para of paragraphs) {
+      const parts = para.split(splitRe);
+      for (let part of parts) {
+        if (!part) continue;
+        const m = part.match(markerRe);
+        if (m) {
+          const markerType = m[1]; // "image" or "videothumb"
+          const indices = m[2].split(',').map(s => parseInt(s.trim()));
+          const imgCount = indices.length;
+          if (imgCount === 0) continue;
+          const totalGap = imageGap * (imgCount - 1);
+          const colW = (descW - totalGap) / imgCount;
+          // First pass: collect loaded images and compute row height
+          const loaded = [];
+          let rowH = 0;
+          for (let idx of indices) {
+            const img = projectMoreImages[selectedProjectId]?.[idx];
+            if (img && img.width > 0) {
+              const aspect = img.width / img.height;
+              const displayH = Math.min(colW / aspect, imageMaxH);
+              loaded.push({ img, displayH, aspect });
+              rowH = Math.max(rowH, displayH);
+            }
+          }
+          // Second pass: render side-by-side, centered vertically
+          if (loaded.length > 0) {
+            for (let colIdx = 0; colIdx < loaded.length; colIdx++) {
+              const { img, displayH, aspect } = loaded[colIdx];
+              const displayW = displayH * aspect;
+              const imgX = descX + colIdx * (colW + imageGap) + (colW - displayW) / 2;
+              const imgY = drawY + (rowH - displayH) / 2;
+              g.image(img, imgX, imgY, displayW, displayH);
+              if (markerType === 'videothumb') {
+                const d = min(displayW, displayH) * 0.45;
+                drawPlayButton(g, imgX + displayW / 2, imgY + displayH / 2, d);
+              }
+              imageBounds.push({ x: imgX, y: imgY, w: displayW, h: displayH, type: markerType });
+            }
+            drawY += rowH + paraGap;
+          }
+        } else if (part.trim()) {
+          // text — split into sentences, each on its own line
+          g.fill(0);
+          const sentences = part.split(sentenceRe);
+          for (let i = 0; i < sentences.length; i++) {
+            const sentence = sentences[i].trim();
+            if (!sentence) continue;
+            const sLines = countWrappedLines(sentence, descW);
+            g.text(sentence, descX, drawY, descW);
+            drawY += sLines * lineH;
+            drawY += paraGap; // double break after every period
+          }
+        }
+      }
+    }
+
     g.drawingContext.restore();
     g.pop();
 
@@ -336,6 +538,12 @@ function draw() {
 }
 
 function mouseClicked() {
+  // If a full-screen video is playing, clicking anywhere dismisses it
+  if (videoMode) {
+    hideVimeo();
+    return;
+  }
+
   if(wHovered && galleryMode){ //a way to get out of gallery mode
     galleryMode = false;
     projectMode = false;
@@ -354,25 +562,49 @@ function mouseClicked() {
   }
 
   if(biohovered){
-    //hideVimeo();
     galleryMode = false;
     projectMode = false;
     changeCubesToImages(false); //revert to cubes
     returnCubesToParticles(); //move cubes back to particle positions
   }
 
-  // click on a cube in gallery mode to open project detail
-  if (galleryMode && hoveredProjectId >= 0) {
+  // click on an image inside a project box
+  // [videothumb:N] launches the project video; [image:N] is reserved for future expand
+  // (check BEFORE the "close box when clicking outside" else-if)
+  if (projectMode && selectedProjectId >= 0) {
+    const proj = projects[selectedProjectId];
+    for (let b of imageBounds) {
+      if (mouseX >= b.x && mouseX <= b.x + b.w &&
+          mouseY >= b.y && mouseY <= b.y + b.h) {
+        if (b.type === 'videothumb' && proj && proj.video) {
+          projectMode = false;
+          showProjectVideo(proj.video);
+          return;
+        }
+        // regular [image:N] image clicked — nothing yet (future: expand)
+        break;
+      }
+    }
+  }
+
+  // cube clicks are disabled while a project is open
+  if (galleryMode && !projectMode && hoveredProjectId >= 0) {
     if (selectedProjectId !== hoveredProjectId) {
       projectScrollY = 0; // reset scroll for new project
     }
     selectedProjectId = hoveredProjectId;
     projectMode = true;
   } else if (galleryMode && projectMode && !exitHovered) {
-    // close project box when clicking outside any cube
-    projectMode = false;
+    // close project box only when clicking outside the box area
+    const pw = width * 0.6;
+    const ph = height * 0.6;
+    const px = (width - pw) / 2;
+    const py = (height - ph) / 2;
+    const outside = mouseX < px || mouseX > px + pw || mouseY < py || mouseY > py + ph;
+    if (outside) {
+      projectMode = false;
+    }
   }
-
 }
 
 function mouseWheel(event) {
@@ -383,6 +615,10 @@ function mouseWheel(event) {
 }
 
 function keyPressed() {
+  if (keyCode === ESCAPE && videoMode) {
+    hideVimeo();
+    return;
+  }
   if (keyCode === ESCAPE && galleryMode) {
     if (projectMode) {
       projectMode = false;
@@ -592,9 +828,8 @@ function windowResized() {
 }
 
 function createVimeoIframe() {
-  const src = 'https://player.vimeo.com/video/932979322?autoplay=1&loop=1&muted=1&autopause=0&background=1';
+  // Create the iframe once; src is set in showProjectVideo (from click handler)
   vimeoIframe = createElement('iframe');
-  vimeoIframe.attribute('src', src);
   vimeoIframe.attribute('frameborder', '0');
   vimeoIframe.attribute('allow', 'autoplay; fullscreen; picture-in-picture');
   vimeoIframe.attribute('allowfullscreen', '');
@@ -609,6 +844,58 @@ function createVimeoIframe() {
   vimeoIframe.style('z-index', '9999');        // visible above canvas when shown
   vimeoIframe.style('border', '0');
   vimeoIframe.hide(); // start hidden
+}
+
+// Convert a vimeo.com URL to a player.vimeo.com embed URL
+function vimeoPlayerUrl(url) {
+  const m = url.match(/vimeo\.com\/(\d+)/);
+  if (m) {
+    return `https://player.vimeo.com/video/${m[1]}?autoplay=1&loop=1&autopause=0`;
+  }
+  return url; // not a Vimeo URL, use as-is
+}
+
+// Show a Vimeo video full-screen (src is set here, inside the click handler,
+// so the browser treats it as a user-gesture-initiated autoplay with sound)
+function showProjectVideo(vimeoUrl) {
+  if (!vimeoIframe) return;
+  // Stop gallery rendering and show the loading text FIRST,
+  // then load the video — this prevents the "play" event arriving
+  // before the loading text is up.
+  videoMode = true;
+  videoLoaded = false;
+
+  const playerUrl = vimeoPlayerUrl(vimeoUrl);
+  vimeoIframe.attribute('src', playerUrl);
+
+  // Keep the iframe hidden until the video is actually ready, so the
+  // loading text (drawn on the canvas at z-index 1) isn't covered by
+  // the Vimeo iframe (z-index 9999) with its controls visible.
+  const revealVideo = function () {
+    if (videoLoaded) return; // already revealed
+    videoLoaded = true;
+    showVimeoBackground();
+  };
+
+  // fallback: reveal after 6 s even if Vimeo never fires "play"
+  setTimeout(revealVideo, 6000);
+
+  // Use the official Vimeo Player API to reliably detect when playback starts
+  if (typeof Vimeo !== 'undefined' && Vimeo.Player) {
+    // Wait for the iframe to finish loading before creating the Player
+    const onLoad = function () {
+      vimeoIframe.elt.removeEventListener('load', onLoad);
+      try {
+        const player = new Vimeo.Player(vimeoIframe.elt);
+        // Both 'play' and 'loaded' dismiss the loading text and reveal the video
+        player.on('play', revealVideo);
+        player.on('loaded', revealVideo);
+      } catch (e) {
+        // API failed, fallback to the 6 s timeout above
+      }
+    };
+    vimeoIframe.elt.addEventListener('load', onLoad);
+  }
 }
 
 const VIDEO_ASPECT = 16 / 9; // adjust if your Vimeo video uses another aspect
@@ -649,7 +936,9 @@ function showVimeoBackground() {
 
 function hideVimeo() {
   if (!vimeoIframe) return;
+  vimeoIframe.attribute('src', 'about:blank'); // unload the video so audio stops
   vimeoIframe.hide();
+  videoMode = false;
 }
 
 function changeCubesToImages(showImages) {
