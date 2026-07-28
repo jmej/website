@@ -132,14 +132,14 @@ function createContactForm() {
   contactForm.style('z-index', '10000');
   contactForm.style('pointer-events', 'auto');
 
-  // Centered box (60 % × 60 %) with magenta border
+  // Centered box (60 % × 60 %) with magenta border and turquoise fill
   const box = createDiv('');
   box.parent(contactForm);
   box.style('width', '60vw');
   box.style('height', '60vh');
   box.style('border', '4px solid rgb(255,0,255)');         // magenta
   box.style('box-sizing', 'border-box');
-  box.style('background', '#fff');
+  box.style('background', 'rgb(64,224,208)');               // turquoise
   box.style('display', 'flex');
   box.style('flex-direction', 'column');
   box.style('padding', '2vw');
@@ -984,7 +984,7 @@ function mouseClicked() {
     changeCubesToImages(false);
     returnCubesToParticles();
     contactMode = true;
-    contactForm.show();
+    contactForm.style('display', 'flex'); // show with flex (not block) so centering works
     return;
   }
 
