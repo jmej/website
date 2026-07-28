@@ -4,6 +4,7 @@ let projectData;
 let projectImages = [];
 let particles = []; //for now seperating movement logic from project data
 let turquoise;
+let tTurquoise;
 let magenta;
 let gold;
 
@@ -17,6 +18,13 @@ let wHovered = false;
 let biohovered = false;
 
 let galleryMode = false;
+let exitHovered = false;
+let hoveredProjectId = -1; // project index of the currently hovered cube
+let projectMode = false;
+let selectedProjectId = -1;
+let projectScrollY = 0;
+let projectOverlay;
+let descFont;
 
 // wind params
 const WIND_SCALE = 0.002;
@@ -32,6 +40,7 @@ const SWITCH_INTERVAL = 5000; // ms between rotation target changes
 function preload() {
   console.log("preloading assets...");
   header = loadFont('assets/Team-Athletics-Freeware.ttf');
+  descFont = loadFont('assets/Roboto-VariableFont_wdth,wght.ttf');
   //needed a callback to make the map work since loadJSON is async
   loadJSON('assets/projectData.json', data => {
     projects = Object.values(data).map(Project.fromJSON);
@@ -50,12 +59,15 @@ function setup() {
   cnv.style('position', 'relative');
   cnv.style('z-index', '1'); // canvas above the video
   turquoise = color(64, 224, 208);
+  tTurquoise = color(64, 224, 208, 230); //same turquoise with some transparency
   magenta   = color(255, 0, 255);
   gold = color(255,200,87);
   for (let i = 0; i < projects.length; i++){ //create a particle for each project
     particles.push(new Particle(i)); //pass i for project id
   }
   textFont(header);
+  projectOverlay = createGraphics(width, height); // 2D overlay for project box
+  projectOverlay.textFont(header);
   createVimeoIframe(); // create iframe (hidden by default)
 }
 
@@ -93,8 +105,8 @@ function draw() {
 
 
   //work box
-  const workCenterX = width * 0.17;
-  const workCenterY = height * 0.17;
+  const workCenterX = width * 0.10;
+  const workCenterY = height * 0.10;
   const workW = width * 0.15;
   const workH = height * 0.15;
   const wleft = workCenterX - workW * 0.5;
@@ -110,13 +122,39 @@ function draw() {
   rectMode(CENTER);
 
   if (wHovered || galleryMode) {
-    fill(gold);
     changeCubesToImages(true); //change cube faces to project images
     expandCubesToGrid(); //expand cubes into grid layout
     galleryMode = true;
     //showVimeoBackground();
+
+    // hover enlargement on cubes in gallery mode
+    let hoveredP = null;
+    let hoveredDist = Infinity;
+    for (let p of particles) {
+      const d = dist(p.position.x, p.position.y, mouseX, mouseY);
+      if (d < p.size * 0.7 && d < hoveredDist) {
+        hoveredDist = d;
+        hoveredP = p;
+      }
+    }
+    if (hoveredP) {
+      hoveredProjectId = hoveredP.projectId;
+      const cols = ceil(sqrt(particles.length));
+      const cellW = (width * 0.9) / cols;
+      const cellH = (height * 0.9) / cols;
+      const cellSize = min(cellW, cellH) * 0.8;
+      hoveredP.size = lerp(hoveredP.size, cellSize * 1.4, 0.15);
+    } else {
+      hoveredProjectId = -1;
+    }
   }else{
-    noFill();
+    returnCubesToParticles(); // continuously shrink cubes back to original size
+  }
+
+  if (wHovered && !galleryMode) {
+    fill(gold);
+  } else {
+    fill(turquoise);
   }
 
    rect(0, 0, workW, workH);
@@ -131,8 +169,8 @@ function draw() {
   pop();
 
   //bio box
-  const bioCenterX = width - width *0.17;
-  const bioCenterY = height - height * 0.17;
+  const bioCenterX = width - width *0.10;
+  const bioCenterY = height - height * 0.10;
   const bioW = width * 0.15;
   const bioH = height * 0.15;
   const bleft = bioCenterX - bioW * 0.5;
@@ -149,7 +187,7 @@ function draw() {
   if (biohovered) {
     fill(gold);
   } else {
-    noFill();
+    fill(turquoise);
   }
   rect(0, 0, bioW, bioH);
 
@@ -162,23 +200,198 @@ function draw() {
   textWrap(WORD);
   text("BIO", 0, 0, bioW);
   pop();
+
+  // exit button (appears centered when in gallery mode)
+  if (galleryMode) {
+    const exitBtnW = width * 0.1;
+    const exitBtnH = height * 0.08;
+    const exitX = width / 2;
+    const exitY = height * 0.1;
+    const eLeft = exitX - exitBtnW * 0.5;
+    const eRight = exitX + exitBtnW * 0.5;
+    const eTop = exitY - exitBtnH * 0.5;
+    const eBottom = exitY + exitBtnH * 0.5;
+    exitHovered = mouseX >= eLeft && mouseX <= eRight && mouseY >= eTop && mouseY <= eBottom;
+
+    push();
+    translate(-width/2 + exitX, -height/2 + exitY, 50); // z=50 to appear above everything
+    strokeWeight(4);
+    stroke(turquoise);
+    rectMode(CENTER);
+    if (exitHovered) {
+      fill(gold);
+    } else {
+      fill(turquoise);
+    }
+    rect(0, 0, exitBtnW, exitBtnH);
+
+    // label
+    fill(0);
+    noStroke();
+    textAlign(CENTER, CENTER);
+    textSize(width * 0.05);
+    text("back", 0, 0);
+    pop();
+  } else {
+    exitHovered = false;
+  }
+
+  //project box (drawn via 2D overlay for reliable positioning)
+  if (projectMode && selectedProjectId >= 0) {
+    const proj = projects[selectedProjectId];
+    const boxW = width * 0.6;
+    const boxH = height * 0.6;
+    const boxX = (width - boxW) / 2;
+    const boxY = (height - boxH) / 2;
+    const margin = width * 0.04;
+    const descMargin = width * 0.07; // bigger margin for description
+
+    const g = projectOverlay;
+    g.clear();
+
+    // dimmed backdrop covering entire screen
+    g.noStroke();
+    g.fill(tTurquoise);
+    g.rect(0, 0, width, height);
+
+    // centered border
+    g.strokeWeight(4);
+    g.stroke(magenta);
+    g.noFill();
+    g.rect(boxX, boxY, boxW, boxH);
+
+    // project name (uses regular margin)
+    g.fill(gold);
+    g.noStroke();
+    g.textAlign(LEFT, TOP);
+    g.textSize(width * 0.03);
+    g.textLeading(width * 0.035);
+    const titleY = boxY + margin;
+    g.text(proj.name, boxX + margin, titleY, boxW - margin * 2);
+
+    // description area (uses bigger descMargin)
+    g.fill(0);
+    g.textSize(width * 0.016);
+    g.textLeading(width * 0.022);
+    const descX = boxX + descMargin;
+    const descW = boxW - descMargin * 2;
+    const descTopY = titleY + width * 0.05;
+    const descBottomY = boxY + boxH - margin;
+    const descH = descBottomY - descTopY;
+
+    // estimate total text height for scroll bounds
+    g.textFont(descFont);
+    const totalTextW = g.textWidth(proj.description);
+    const approxLines = Math.ceil(totalTextW / Math.max(1, descW));
+    const lineH = width * 0.022;
+    const totalTextH = approxLines * lineH;
+    const scrollMax = Math.max(0, totalTextH - descH);
+
+    // clamp scroll
+    projectScrollY = constrain(projectScrollY, 0, scrollMax);
+
+    // clip description area via raw Canvas2D API (more reliable than p5's clip)
+    g.push();
+    g.drawingContext.save();
+    g.drawingContext.beginPath();
+    g.drawingContext.rect(descX, descTopY, descW, descH);
+    g.drawingContext.clip();
+    g.fill(0);
+    g.text(proj.description, descX, descTopY - projectScrollY, descW);
+    g.drawingContext.restore();
+    g.pop();
+
+    // scroll indicators (minimal triangles)
+    const indicatorSize = width * 0.02;
+    const indicatorRight = boxX + boxW - margin * 0.5;
+    const indicatorCenterY = (descTopY + descBottomY) / 2;
+
+    if (projectScrollY > 0) {
+      g.fill(0);
+      g.noStroke();
+      g.triangle(
+        indicatorRight, indicatorCenterY - indicatorSize * 2.5,
+        indicatorRight - indicatorSize * 1.5, indicatorCenterY - indicatorSize * 1,
+        indicatorRight + indicatorSize * 1.5, indicatorCenterY - indicatorSize * 1
+      );
+    }
+    if (projectScrollY < scrollMax) {
+      g.fill(0);
+      g.noStroke();
+      g.triangle(
+        indicatorRight, indicatorCenterY + indicatorSize * 2.5,
+        indicatorRight - indicatorSize * 1.5, indicatorCenterY + indicatorSize * 1,
+        indicatorRight + indicatorSize * 1.5, indicatorCenterY + indicatorSize * 1
+      );
+    }
+
+    // render the overlay as a textured plane in WEBGL, centered on screen
+    push();
+    translate(0, 0, 250);
+    texture(g);
+    noStroke();
+    plane(width, height);
+    pop();
+  }
 }
 
 function mouseClicked() {
   if(wHovered && galleryMode){ //a way to get out of gallery mode
     galleryMode = false;
+    projectMode = false;
+    changeCubesToImages(false);
+    returnCubesToParticles();
   }
   if(wHovered && !galleryMode){
     galleryMode = true;
   }
   
+  if(exitHovered && galleryMode){
+    galleryMode = false;
+    projectMode = false;
+    changeCubesToImages(false);
+    returnCubesToParticles();
+  }
+
   if(biohovered){
     //hideVimeo();
     galleryMode = false;
+    projectMode = false;
     changeCubesToImages(false); //revert to cubes
     returnCubesToParticles(); //move cubes back to particle positions
   }
 
+  // click on a cube in gallery mode to open project detail
+  if (galleryMode && hoveredProjectId >= 0) {
+    if (selectedProjectId !== hoveredProjectId) {
+      projectScrollY = 0; // reset scroll for new project
+    }
+    selectedProjectId = hoveredProjectId;
+    projectMode = true;
+  } else if (galleryMode && projectMode && !exitHovered) {
+    // close project box when clicking outside any cube
+    projectMode = false;
+  }
+
+}
+
+function mouseWheel(event) {
+  if (projectMode) {
+    projectScrollY += event.delta;
+    return false; // prevent page scroll
+  }
+}
+
+function keyPressed() {
+  if (keyCode === ESCAPE && galleryMode) {
+    if (projectMode) {
+      projectMode = false;
+    } else {
+      galleryMode = false;
+      changeCubesToImages(false);
+      returnCubesToParticles();
+    }
+  }
 }
 
 class Particle{
@@ -365,16 +578,19 @@ function enforceMainRect(p) {
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
-  // keep iframe size updated even if hidden
-  if (vimeoIframe) vimeoIframe.size(windowWidth, windowHeight);
+  // resize 2D overlay for project box
+  projectOverlay = createGraphics(width, height);
+  projectOverlay.textFont(header);
+  // update iframe sizing if visible
+  if (vimeoIframe && vimeoIframe.elt && vimeoIframe.elt.style.display !== 'none') {
+    showVimeoBackground();
+  }
   for (let p of particles) {
     p.position.x = constrain(p.position.x, 0, width);
     p.position.y = constrain(p.position.y, 0, height);
   }
 }
 
-
-// ...existing code...
 function createVimeoIframe() {
   const src = 'https://player.vimeo.com/video/932979322?autoplay=1&loop=1&muted=1&autopause=0&background=1';
   vimeoIframe = createElement('iframe');
@@ -434,18 +650,6 @@ function showVimeoBackground() {
 function hideVimeo() {
   if (!vimeoIframe) return;
   vimeoIframe.hide();
-}
-
-function windowResized() {
-  resizeCanvas(windowWidth, windowHeight);
-  // update iframe sizing if visible
-  if (vimeoIframe && vimeoIframe.elt && vimeoIframe.elt.style.display !== 'none') {
-    showVimeoBackground();
-  }
-  for (let p of particles) {
-    p.position.x = constrain(p.position.x, 0, width);
-    p.position.y = constrain(p.position.y, 0, height);
-  }
 }
 
 function changeCubesToImages(showImages) {
