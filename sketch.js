@@ -52,7 +52,7 @@ const WIND_STRENGTH = 0.08;
 const WIND_TIME_SCALE = 0.0002;
 
 // ── Contact form ─────────────────────────────────────────────
-const FORMSPREE_ID = 'YOUR_FORM_ID'; // replace with your Formspree form ID
+const FORMSPREE_ID = 'mrenvqwd'; // replace with your Formspree form ID
 const FORMSPREE_URL = `https://formspree.io/f/${FORMSPREE_ID}`;
 
 //cube rotation
