@@ -24,6 +24,12 @@ let bioOverlay;
 
 let biohovered = false;
 
+let linksMode = false;             // true when the links overlay is open
+let linksOverlay;
+let linkshovered = false;
+let linksScrollY = 0;
+let linkBounds = [];               // clickable link rectangles rendered in the links overlay
+
 let contactMode = false;             // true when the contact overlay is open
 let contactForm;
 let contacthovered = false;
@@ -52,8 +58,18 @@ const WIND_STRENGTH = 0.08;
 const WIND_TIME_SCALE = 0.0002;
 
 // ── Contact form ─────────────────────────────────────────────
-const FORMSPREE_ID = 'mrenvqwd'; // replace with your Formspree form ID
+const FORMSPREE_ID = 'YOUR_FORM_ID'; // replace with your Formspree form ID
 const FORMSPREE_URL = `https://formspree.io/f/${FORMSPREE_ID}`;
+
+// ── Links overlay ────────────────────────────────────────────
+const LINKS = [
+  { label: 'Parallel Studio',     url: 'https://parallel.studio' },
+  { label: 'Instagram', url: 'https://instagram.com/bananeurysm' },
+  { label: 'GitHub',    url: 'https://github.com/jmej' },
+  { label: 'Soundcloud',    url: 'https://soundcloud.com/losdatos' },
+
+  
+];
 
 //cube rotation
 let currentRot = { x: 0, y: 0 };
@@ -101,6 +117,8 @@ function setup() {
   projectOverlay.textFont(header);
   bioOverlay = createGraphics(width, height); // 2D overlay for bio box
   bioOverlay.textFont(header);
+  linksOverlay = createGraphics(width, height); // 2D overlay for links box
+  linksOverlay.textFont(header);
   createContactForm(); // p5.js DOM overlay for the contact form
   createVimeoIframe(); // create iframe (hidden by default)
 
@@ -250,13 +268,19 @@ function createContactForm() {
 
   contactForm.hide();
 
-  // Close when clicking the backdrop (not the box)
-  contactForm.mouseClicked(() => {
-    contactMode = false;
-    contactForm.hide();
+  // Close only when clicking the backdrop itself (not the box or form fields).
+  // p5.js mouseClicked() does not stop propagation, so use native listeners
+  // with target checks instead.
+  contactForm.elt.addEventListener('click', function (e) {
+    if (e.target === contactForm.elt) {
+      contactMode = false;
+      contactForm.hide();
+    }
   });
-  // Prevent click inside the box from propagating to the backdrop
-  box.mouseClicked(() => false);
+  // Prevent clicks inside the box from bubbling up to the backdrop
+  box.elt.addEventListener('click', function (e) {
+    e.stopPropagation();
+  });
 }
 
 function submitContactForm() {
@@ -396,7 +420,7 @@ function draw() {
     returnCubesToParticles(); // continuously shrink cubes back to original size
   }
 
-  if (wHovered && !galleryMode) {
+  if (wHovered) {
     fill(gold);
   } else {
     fill(turquoise);
@@ -413,9 +437,9 @@ function draw() {
   text("WORK", 0, 0, workW);
   pop();
 
-  //bio box
-  const bioCenterX = width - width *0.10;
-  const bioCenterY = height - height * 0.10;
+  //bio box (top-right, symmetric to WORK at top-left)
+  const bioCenterX = width - width * 0.10;
+  const bioCenterY = height * 0.10;
   const bioW = width * 0.15;
   const bioH = height * 0.15;
   const bleft = bioCenterX - bioW * 0.5;
@@ -446,7 +470,38 @@ function draw() {
   text("BIO", 0, 0, bioW);
   pop();
 
-  //contact box (bottom-left, symmetric to BIO at bottom-right)
+  //links box (bottom-right)
+  const linksCenterX = width - width * 0.10;
+  const linksCenterY = height - height * 0.10;
+  const linksW = width * 0.15;
+  const linksH = height * 0.15;
+  const lleft = linksCenterX - linksW * 0.5;
+  const lright = linksCenterX + linksW * 0.5;
+  const ltop = linksCenterY - linksH * 0.5;
+  const lbottom = linksCenterY + linksH * 0.5;
+  linkshovered = mouseX >= lleft && mouseX <= lright && mouseY >= ltop && mouseY <= lbottom;
+  push();
+  translate(-width/2 + linksCenterX, -height/2 + linksCenterY, 20);
+  strokeWeight(4);
+  stroke(turquoise);
+  rectMode(CENTER);
+  if (linkshovered) {
+    fill(gold);
+  } else {
+    fill(turquoise);
+  }
+  rect(0, 0, linksW, linksH);
+
+  fill(0);
+  noStroke();
+  textAlign(CENTER, CENTER);
+  textSize(width * 0.05);
+  textLeading(width * 0.05);
+  textWrap(WORD);
+  text("LINKS", 0, 0, linksW);
+  pop();
+
+  //contact box (bottom-left, symmetric to LINKS at bottom-right)
   const contactCenterX = width * 0.10;
   const contactCenterY = height - height * 0.10;
   const contactW = width * 0.15;
@@ -477,8 +532,8 @@ function draw() {
   text("email", 0, 0, contactW);
   pop();
 
-  // exit button (appears centered when gallery/bio/contact mode is active)
-  if (galleryMode || bioMode || contactMode) {
+  // exit button (appears centered when gallery/bio/links/contact mode is active)
+  if (galleryMode || bioMode || linksMode || contactMode) {
     const exitBtnW = width * 0.1;
     const exitBtnH = height * 0.08;
     const exitX = width / 2;
@@ -490,7 +545,7 @@ function draw() {
     exitHovered = mouseX >= eLeft && mouseX <= eRight && mouseY >= eTop && mouseY <= eBottom;
 
     push();
-    translate(-width/2 + exitX, -height/2 + exitY, 50); // z=50 to appear above everything
+    translate(-width/2 + exitX, -height/2 + exitY, 999); // z=999 to appear above the overlay planes (z=250)
     strokeWeight(4);
     stroke(turquoise);
     rectMode(CENTER);
@@ -929,6 +984,164 @@ function draw() {
     plane(width, height);
     pop();
   }
+
+  if (linksMode && LINKS.length > 0) {
+    const boxW = width * 0.6;
+    const boxH = height * 0.6;
+    const boxX = (width - boxW) / 2;
+    const boxY = (height - boxH) / 2;
+    const margin = width * 0.04;
+
+    const g = linksOverlay;
+    g.clear();
+
+    // dimmed backdrop
+    g.noStroke();
+    g.fill(tTurquoise);
+    g.rect(0, 0, width, height);
+
+    // centered border with title
+    g.strokeWeight(4);
+    g.stroke(magenta);
+    g.noFill();
+    g.rect(boxX, boxY, boxW, boxH);
+
+    g.fill(gold);
+    g.noStroke();
+    g.textAlign(LEFT, TOP);
+    g.textSize(width * 0.03);
+    g.textLeading(width * 0.035);
+    const titleY = boxY + margin;
+    g.text('Links', boxX + margin, titleY, boxW - margin * 2);
+
+    const linkSize = width * 0.03;
+    const linkLeading = width * 0.045;
+    const listX = boxX + width * 0.07;
+    const listW = boxW - width * 0.14;
+    const listTopY = titleY + width * 0.05;
+    const listBottomY = boxY + boxH - margin;
+    const listH = listBottomY - listTopY;
+
+    g.textFont(header);
+    g.textSize(linkSize);
+    g.textLeading(linkLeading);
+
+    // wrapped-line count (same logic as the project/bio boxes)
+    function countLinkLines(label) {
+      const words = label.split(' ');
+      let lineCount = 1;
+      let lineW = 0;
+      for (const word of words) {
+        const wordW = g.textWidth(word + ' ');
+        if (lineW + wordW > listW && lineW > 0) {
+          lineCount++;
+          lineW = wordW;
+        } else {
+          lineW += wordW;
+        }
+      }
+      return lineCount;
+    }
+
+    // ── measurement pass ──
+    let totalH = 0;
+    for (const link of LINKS) {
+      totalH += countLinkLines(link.label) * linkLeading;
+    }
+    const scrollMax = Math.max(0, totalH - listH);
+    linksScrollY = constrain(linksScrollY, 0, scrollMax);
+
+    // ── render pass ──
+    g.push();
+    g.drawingContext.save();
+    g.drawingContext.beginPath();
+    g.drawingContext.rect(listX, listTopY, listW, listH);
+    g.drawingContext.clip();
+
+    linkBounds = [];
+    let drawY = listTopY - linksScrollY;
+    for (const link of LINKS) {
+      const itemH = countLinkLines(link.label) * linkLeading;
+      const inView = drawY + itemH > listTopY && drawY < listBottomY;
+      const hovered = mouseX >= listX && mouseX <= listX + listW &&
+                      mouseY >= drawY && mouseY <= drawY + itemH;
+
+      // text — always noStroke so a leftover stroke never outlines the glyphs
+      g.noStroke();
+      if (hovered) {
+        g.fill(gold);
+      } else {
+        g.fill(0);
+      }
+      g.text(link.label, listX, drawY, listW);
+
+      // underline — always drawn (thicker + darker on hover), anchored near the
+      // bottom of the row so it sits clearly below the glyphs (textAscent/
+      // textDescent are unreliable for display fonts)
+      const underlineY = drawY + itemH - linkSize * 0.35;
+      g.strokeWeight(hovered ? 3 : 1);
+      g.stroke(0, 0, 0, hovered ? 255 : 160);
+      g.line(listX, underlineY, listX + g.textWidth(link.label), underlineY);
+      g.noStroke(); // leave stroke off for the rest of the list
+
+      if (inView) {
+        linkBounds.push({ x: listX, y: drawY, w: listW, h: itemH, url: link.url });
+      }
+      drawY += itemH;
+    }
+
+    g.drawingContext.restore();
+    g.pop();
+
+    // scroll indicators
+    const indicatorSize = width * 0.02;
+    const indicatorRight = boxX + boxW - margin * 0.5;
+    const indicatorCenterY = (listTopY + listBottomY) / 2;
+
+    if (linksScrollY > 0) {
+      g.fill(0);
+      g.noStroke();
+      g.triangle(indicatorRight, indicatorCenterY - indicatorSize * 2.5,
+        indicatorRight - indicatorSize * 1.5, indicatorCenterY - indicatorSize * 1,
+        indicatorRight + indicatorSize * 1.5, indicatorCenterY - indicatorSize * 1);
+    }
+    if (linksScrollY < scrollMax) {
+      g.fill(0);
+      g.noStroke();
+      g.triangle(indicatorRight, indicatorCenterY + indicatorSize * 2.5,
+        indicatorRight - indicatorSize * 1.5, indicatorCenterY + indicatorSize * 1,
+        indicatorRight + indicatorSize * 1.5, indicatorCenterY + indicatorSize * 1);
+    }
+
+    // render as textured plane
+    push();
+    translate(0, 0, 250);
+    texture(g);
+    noStroke();
+    plane(width, height);
+    pop();
+  }
+}
+
+// Open a link in a new tab, robust against popup blockers (fallback to an
+// anchor click, which is the most reliable way from a user-gesture handler).
+function openLink(url) {
+  if (!url) return;
+  let opened = false;
+  try {
+    opened = !!window.open(url, '_blank', 'noopener');
+  } catch (e) {
+    opened = false;
+  }
+  if (!opened) {
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
 }
 
 function mouseClicked() {
@@ -938,15 +1151,29 @@ function mouseClicked() {
     return;
   }
 
-  if(wHovered && galleryMode){ //a way to get out of gallery mode
+  // click a link inside the links overlay (before any close-outside logic)
+  if (linksMode) {
+    for (const b of linkBounds) {
+      if (mouseX >= b.x && mouseX <= b.x + b.w && mouseY >= b.y && mouseY <= b.y + b.h) {
+        if (b.url) {
+          openLink(b.url);
+          linksMode = false; // close the overlay as feedback
+        }
+        return;
+      }
+    }
+  }
+
+  if(wHovered && galleryMode && !bioMode && !linksMode){ //a way to get out of gallery mode
     galleryMode = false;
     projectMode = false;
     changeCubesToImages(false);
     returnCubesToParticles();
   }
-  if(wHovered && !galleryMode){
+  if(wHovered && !galleryMode && !bioMode && !linksMode){
     galleryMode = true;
     bioMode = false;
+    linksMode = false;
     if (contactMode) { contactMode = false; contactForm.hide(); }
   }
   
@@ -956,17 +1183,21 @@ function mouseClicked() {
     changeCubesToImages(false);
     returnCubesToParticles();
     bioMode = false;
+    linksMode = false;
     if (contactMode) { contactMode = false; contactForm.hide(); }
   }
   if(exitHovered && bioMode){
     bioMode = false;
+  }
+  if(exitHovered && linksMode){
+    linksMode = false;
   }
   if(exitHovered && contactMode){
     contactMode = false;
     contactForm.hide();
   }
 
-  if(biohovered){
+  if(biohovered && !linksMode){
     galleryMode = false;
     projectMode = false;
     changeCubesToImages(false); //revert to cubes
@@ -977,10 +1208,23 @@ function mouseClicked() {
     return;
   }
 
-  if(contacthovered){
+  if(linkshovered && !bioMode){
     galleryMode = false;
     projectMode = false;
     bioMode = false;
+    changeCubesToImages(false);
+    returnCubesToParticles();
+    if (contactMode) { contactMode = false; contactForm.hide(); }
+    linksMode = true;
+    linksScrollY = 0;
+    return;
+  }
+
+  if(contacthovered && !bioMode && !linksMode){
+    galleryMode = false;
+    projectMode = false;
+    bioMode = false;
+    linksMode = false;
     changeCubesToImages(false);
     returnCubesToParticles();
     contactMode = true;
@@ -1033,9 +1277,15 @@ function mouseClicked() {
     if (mouseX < bx || mouseX > bx + bw || mouseY < by || mouseY > by + bh) {
       bioMode = false;
     }
-  } else if (contactMode && !exitHovered) {
-    contactMode = false;
-    contactForm.hide();
+  } else if (linksMode && !exitHovered) {
+    // close links box when clicking outside
+    const lw = width * 0.6;
+    const lh = height * 0.6;
+    const lx = (width - lw) / 2;
+    const ly = (height - lh) / 2;
+    if (mouseX < lx || mouseX > lx + lw || mouseY < ly || mouseY > ly + lh) {
+      linksMode = false;
+    }
   }
 }
 
@@ -1046,6 +1296,34 @@ function mouseWheel(event) {
   }
   if (bioMode) {
     bioScrollY += event.delta;
+    return false;
+  }
+  if (linksMode) {
+    linksScrollY += event.delta;
+    return false;
+  }
+}
+
+// Touch (mobile) scrolling for the scrollable overlays.
+// Dragging up moves content up (scrolls forward), matching natural touch scroll.
+function touchMoved() {
+  if (projectMode) {
+    projectScrollY += (pmouseY - mouseY);
+    return false; // prevent the page from scrolling
+  }
+  if (bioMode) {
+    bioScrollY += (pmouseY - mouseY);
+    return false;
+  }
+  if (linksMode) {
+    linksScrollY += (pmouseY - mouseY);
+    return false;
+  }
+}
+
+function touchStarted() {
+  // prevent page scroll/zoom from being triggered by drags on the canvas
+  if (projectMode || bioMode || linksMode) {
     return false;
   }
 }
@@ -1066,6 +1344,9 @@ function keyPressed() {
   }
   if (keyCode === ESCAPE && bioMode) {
     bioMode = false;
+  }
+  if (keyCode === ESCAPE && linksMode) {
+    linksMode = false;
   }
   if (keyCode === ESCAPE && contactMode) {
     contactMode = false;
@@ -1257,9 +1538,13 @@ function enforceMainRect(p) {
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
-  // resize 2D overlay for project box
+  // resize 2D overlays so text/image hit-testing stays aligned with the canvas
   projectOverlay = createGraphics(width, height);
   projectOverlay.textFont(header);
+  bioOverlay = createGraphics(width, height);
+  bioOverlay.textFont(header);
+  linksOverlay = createGraphics(width, height);
+  linksOverlay.textFont(header);
   // update iframe sizing if visible
   if (vimeoIframe && vimeoIframe.elt && vimeoIframe.elt.style.display !== 'none') {
     showVimeoBackground();
