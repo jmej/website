@@ -28,6 +28,8 @@ let linksMode = false;             // true when the links overlay is open
 let linkshovered = false;
 let linksPanel;                    // full-screen DOM overlay for the links list
 let linksBox;                      // centered box inside linksPanel
+let linksTitle;                    // "Links" heading div inside linksBox
+let linkEls = [];                  // DOM anchors for the links (for responsive sizing)
 let linksVisible = false;          // whether linksPanel is currently shown
 
 let contactMode = false;             // true when the contact overlay is open
@@ -49,6 +51,8 @@ let videoMode = false;          // true when a full-screen Vimeo is playing
 let videoLoaded = false;        // true once the Vimeo video has started playing
 let imageBounds = [];           // populated during project box render for click detection
 let projectBackBtn = null;      // {x,y,w,h} of the gold "back" button in the project box
+let projectBox = null;          // {x,y,w,h} of the project box (kept in sync for outside-click close)
+let mainBox = { w: 0, h: 0 };   // main bio-blurb box dims, recomputed each frame in draw()
 
 // description typography — change these ratios to resize the project body text
 const DESC_TEXT_RATIO = 0.014;   // text size as fraction of screen width
@@ -80,7 +84,7 @@ const SWITCH_INTERVAL = 5000; // ms between rotation target changes
 function preload() {
   console.log("preloading assets...");
   header = loadFont('assets/Team-Athletics-Freeware.ttf');
-  descFont = loadFont('assets/Roboto-VariableFont_wdth,wght.ttf');
+  descFont = loadFont('assets/SpaceGrotesk-VariableFont_wght.ttf');
   //needed a callback to make the map work since loadJSON is async
   loadJSON('assets/projectData.json', data => {
     projects = Object.values(data).map(Project.fromJSON);
@@ -160,11 +164,12 @@ function createContactForm() {
   contactForm.style('z-index', '10000');
   contactForm.style('pointer-events', 'auto');
 
-  // Centered box (60 % × 60 %) with magenta border and turquoise fill
+  // Centered box (80 % × 62 %) with magenta border and turquoise fill,
+  // matching the project/bio/links boxes
   const box = createDiv('');
   box.parent(contactForm);
-  box.style('width', '60vw');
-  box.style('height', '60vh');
+  box.style('width', '80vw');
+  box.style('height', '62vh');
   box.style('border', '4px solid rgb(255,0,255)');         // magenta
   box.style('box-sizing', 'border-box');
   box.style('background', 'rgb(64,224,208)');               // turquoise
@@ -173,15 +178,22 @@ function createContactForm() {
   box.style('padding', '2vw');
   box.style('position', 'relative');
   box.style('overflow', 'auto');
-  box.style('font-family', 'Roboto, sans-serif');
+  box.style('font-family', '"Space Grotesk", sans-serif');
 
-  // "CONTACT" title (Team Athletics font)
+  // Viewport-aware type scale (same as the project/bio boxes): below 1000px
+  // wide the font holds its size instead of shrinking with the window.
+  const typeScale = Math.max(window.innerWidth, 1000) / window.innerWidth;
+  const vw = (base) => (base * typeScale) + 'vw';
+
+  // "CONTACT" title (Team Athletics font) — bigger, like the project titles
   const title = createDiv('CONTACT');
   title.parent(box);
   title.style('color', 'rgb(255,200,87)');                  // gold
   title.style('font-family', '"Team Athletics Freeware", sans-serif');
-  title.style('font-size', `${width * 0.03}px`);
+  title.style('font-size', vw(4));
+  title.style('line-height', vw(4));
   title.style('margin-bottom', '1.5vh');
+  title.style('flex-shrink', '0');
 
   // Close "X" button (top-right corner of the box)
   const closeBtn = createDiv('✕');
@@ -189,81 +201,89 @@ function createContactForm() {
   closeBtn.style('position', 'absolute');
   closeBtn.style('top', '1vw');
   closeBtn.style('right', '1.5vw');
-  closeBtn.style('font-size', '24px');
+  closeBtn.style('font-size', vw(2.6));
+  closeBtn.style('line-height', '1');
   closeBtn.style('cursor', 'pointer');
   closeBtn.style('color', '#000');
   closeBtn.style('font-family', 'sans-serif');
-  closeBtn.style('line-height', '1');
   closeBtn.style('user-select', 'none');
   closeBtn.mouseClicked(() => { contactMode = false; contactForm.hide(); });
 
+  // Shared field styles: bold Team Athletics labels + big Space Grotesk inputs
+  // with chunky borders, matching the rest of the site's aesthetic
+  const fieldStyles = {
+    'width': '100%',
+    'box-sizing': 'border-box',
+    'padding': '0.8vh 1vw',
+    'margin-bottom': '1.5vh',
+    'border': '3px solid rgba(0,0,0,0.55)',
+    'border-radius': '0',
+    'background': '#fff',
+    'font-size': vw(1.8),
+    'font-family': '"Space Grotesk", sans-serif',
+  };
+
+  function makeLabel(text) {
+    const s = createSpan(text).parent(box);
+    s.style('color', '#000');
+    s.style('font-family', '"Team Athletics Freeware", sans-serif');
+    s.style('font-size', vw(2.2));
+    s.style('line-height', vw(2.2));
+    s.style('margin-bottom', '0.3vh');
+    s.style('flex-shrink', '0');
+    return s;
+  }
+
   // Name field
-  createSpan('Name').parent(box).style('font-size', '14px');
+  makeLabel('Name');
   const nameInp = createInput('');
   nameInp.parent(box);
   nameInp.attribute('type', 'text');
   nameInp.attribute('name', 'name');
   nameInp.attribute('required', '');
-  nameInp.style('width', '100%');
-  nameInp.style('padding', '8px');
-  nameInp.style('margin-bottom', '1.5vh');
-  nameInp.style('border', '1px solid #ccc');
-  nameInp.style('border-radius', '4px');
-  nameInp.style('box-sizing', 'border-box');
-  nameInp.style('font-size', '14px');
+  for (const [k, v] of Object.entries(fieldStyles)) nameInp.style(k, v);
 
   // Email field
-  createSpan('Email').parent(box).style('font-size', '14px');
+  makeLabel('Email');
   const emailInp = createInput('');
   emailInp.parent(box);
   emailInp.attribute('type', 'email');
   emailInp.attribute('name', '_replyto');
   emailInp.attribute('required', '');
-  emailInp.style('width', '100%');
-  emailInp.style('padding', '8px');
-  emailInp.style('margin-bottom', '1.5vh');
-  emailInp.style('border', '1px solid #ccc');
-  emailInp.style('border-radius', '4px');
-  emailInp.style('box-sizing', 'border-box');
-  emailInp.style('font-size', '14px');
+  for (const [k, v] of Object.entries(fieldStyles)) emailInp.style(k, v);
 
   // Message field
-  createSpan('Message').parent(box).style('font-size', '14px');
+  makeLabel('Message');
   const msgInp = createElement('textarea');
   msgInp.parent(box);
   msgInp.attribute('name', 'message');
   msgInp.attribute('required', '');
-  msgInp.style('width', '100%');
-  msgInp.style('min-height', '15vh');
-  msgInp.style('padding', '8px');
-  msgInp.style('margin-bottom', '1.5vh');
-  msgInp.style('border', '1px solid #ccc');
-  msgInp.style('border-radius', '4px');
-  msgInp.style('box-sizing', 'border-box');
-  msgInp.style('font-size', '14px');
+  for (const [k, v] of Object.entries(fieldStyles)) msgInp.style(k, v);
+  msgInp.style('min-height', '16vh');
   msgInp.style('resize', 'vertical');
-  msgInp.style('font-family', 'Roboto, sans-serif');
 
-  // Submit button
+  // Submit button — big gold button like the "back" buttons elsewhere
   const btn = createButton('SEND');
   btn.parent(box);
   btn.style('align-self', 'flex-end');
-  btn.style('padding', '10px 30px');
-  btn.style('background', 'rgb(64,224,208)');               // turquoise
+  btn.style('padding', '0.8vh 3vw');
+  btn.style('background', 'rgb(255,200,87)');               // gold
   btn.style('color', '#000');
-  btn.style('border', 'none');
-  btn.style('border-radius', '4px');
-  btn.style('font-size', '16px');
+  btn.style('border', '3px solid rgb(0,0,0)');
+  btn.style('border-radius', '0');
+  btn.style('font-family', '"Team Athletics Freeware", sans-serif');
+  btn.style('font-size', vw(2));
+  btn.style('line-height', vw(2));
   btn.style('cursor', 'pointer');
-  btn.style('font-weight', 'bold');
   btn.mousePressed(submitContactForm);
 
   // Success message (hidden by default)
   const success = createDiv('Thanks — I\'ll get back to you soon!');
   success.parent(box);
   success.style('display', 'none');
-  success.style('color', 'rgb(64,224,208)');
-  success.style('font-size', '18px');
+  success.style('color', '#000');
+  success.style('font-family', '"Team Athletics Freeware", sans-serif');
+  success.style('font-size', vw(2));
   success.style('text-align', 'center');
   success.style('margin-top', 'auto');
   success.style('margin-bottom', 'auto');
@@ -312,11 +332,12 @@ function createLinks() {
   linksPanel.style('z-index', '10000');
   linksPanel.style('pointer-events', 'auto');
 
-  // Centered box (60 % × 60 %) with magenta border and turquoise fill
+  // Centered box (80 % × 62 %) with magenta border and turquoise fill,
+  // matching the project/bio boxes
   linksBox = createDiv('');
   linksBox.parent(linksPanel);
-  linksBox.style('width', '60vw');
-  linksBox.style('height', '60vh');
+  linksBox.style('width', '80vw');
+  linksBox.style('height', '62vh');
   linksBox.style('border', '4px solid rgb(255,0,255)');     // magenta
   linksBox.style('box-sizing', 'border-box');
   linksBox.style('background', 'rgb(64,224,208)');          // turquoise
@@ -327,15 +348,14 @@ function createLinks() {
   linksBox.style('overflow', 'auto');
   linksBox.style('font-family', '"Team Athletics Freeware", sans-serif');
 
-  // "Links" title (Team Athletics font, gold)
-  const title = createDiv('Links');
-  title.parent(linksBox);
-  title.style('color', 'rgb(255,200,87)');                  // gold
-  title.style('font-family', '"Team Athletics Freeware", sans-serif');
-  title.style('font-size', '3vw');
-  title.style('line-height', '3vw');
-  title.style('margin-bottom', '1.5vh');
-  title.style('flex-shrink', '0');
+  // "Links" title (Team Athletics font, gold) — size set by sizeLinksToFill()
+  linksTitle = createDiv('Links');
+  linksTitle.parent(linksBox);
+  linksTitle.style('color', 'rgb(255,200,87)');             // gold
+  linksTitle.style('font-family', '"Team Athletics Freeware", sans-serif');
+  linksTitle.style('line-height', '1.2');
+  linksTitle.style('margin-bottom', '0.4em');
+  linksTitle.style('flex-shrink', '0');
 
   // Close "X" button (top-right corner of the box)
   const closeBtn = createDiv('✕');
@@ -352,8 +372,8 @@ function createLinks() {
   closeBtn.mouseClicked(() => { linksMode = false; });
 
   // Each link is a real <a> anchor: native navigation, gold hover, always
-  // underlined — matching the old overlay's look. vw units keep the size in
-  // sync with the canvas so the layout survives window resizes.
+  // underlined — matching the old overlay's look. Font size is computed by
+  // sizeLinksToFill() so the longest link fills the box's content width.
   for (const link of LINKS) {
     if (!link.url) continue;
     const a = createA(link.url, link.label, '_blank');
@@ -366,9 +386,9 @@ function createLinks() {
     a.style('text-decoration-thickness', '1px');
     a.style('text-decoration-color', 'rgba(0,0,0,0.63)'); // old 160-alpha underline
     a.style('text-underline-offset', '0.25em');
-    a.style('font-size', '3vw');     // old linkSize = width * 0.03
-    a.style('line-height', '4.5vw'); // old linkLeading = width * 0.045
+    a.style('white-space', 'nowrap'); // links must not wrap when auto-sized
     a.style('cursor', 'pointer');
+    linkEls.push(a);
     // Hover styling via JS listeners (no CSS file needed)
     a.elt.addEventListener('mouseenter', () => {
       a.style('color', 'rgb(255,200,87)');              // gold
@@ -385,6 +405,7 @@ function createLinks() {
     a.elt.addEventListener('click', () => { linksMode = false; });
   }
 
+  sizeLinksToFill(); // size the links to fill the box's available width
   linksPanel.hide();
   linksVisible = false;
 
@@ -398,6 +419,46 @@ function createLinks() {
   linksBox.elt.addEventListener('click', function (e) {
     e.stopPropagation();
   });
+}
+
+// Size the link text so the longest link fills the box's available content
+// width (minus horizontal padding), and cap it so the whole list still fits
+// vertically. Uses the p5 canvas's header font for measurement so it tracks
+// the DOM's @font-face copy of the same TTF.
+function sizeLinksToFill() {
+  if (!linksBox || linkEls.length === 0) return;
+
+  // measure the longest label at a 100px reference size
+  projectOverlay.textFont(header);
+  projectOverlay.textSize(100);
+  let maxW = 0;
+  for (const a of linkEls) {
+    const w = projectOverlay.textWidth(a.elt.textContent);
+    if (w > maxW) maxW = w;
+  }
+  if (maxW <= 0) return;
+
+  // available content width: 80vw box minus 2vw padding on each side
+  const contentW = 0.80 - 0.04;
+  const widthFit = (contentW * window.innerWidth / maxW) * 100;
+
+  // vertical fit: title (~1.2em + margin) plus each link at 1.5em line height,
+  // all inside the 62vh box (minus top/bottom padding)
+  const boxH = 0.62 * window.innerHeight;
+  const padV = 0.02 * window.innerWidth; // 2vw padding
+  const titleH = widthFit * (1.2 + 0.4);  // title line-height + 0.4em margin
+  const heightFit = (boxH - padV * 2 - titleH) / (linkEls.length * 1.5);
+
+  const fontSize = Math.max(10, Math.min(widthFit, heightFit));
+
+  for (const a of linkEls) {
+    a.style('font-size', fontSize + 'px');
+    a.style('line-height', fontSize * 1.5 + 'px');
+  }
+  if (linksTitle) {
+    linksTitle.style('font-size', fontSize + 'px');
+    linksTitle.style('line-height', fontSize * 1.2 + 'px');
+  }
 }
 
 function submitContactForm() {
@@ -458,8 +519,52 @@ function drawOverlayPlane(g) {
   perspective(); // restore the default perspective camera for the 3D scene
 }
 
+// Count how many lines `str` wraps to inside a maxW-wide box, using the
+// currently set font/size on the main canvas. Same WORD-wrap logic as p5's
+// textWrap(WORD) used when the blurb is drawn.
+function wrappedLineCount(str, maxW) {
+  if (!str.trim()) return 0;
+  let lines = 0;
+  for (const ln of str.split('\n')) {
+    if (!ln.trim()) continue;
+    const words = ln.split(' ');
+    let lineCount = 1;
+    let lineW = 0;
+    for (const word of words) {
+      const wordW = textWidth(word + ' ');
+      if (lineW + wordW > maxW && lineW > 0) {
+        lineCount++;
+        lineW = wordW;
+      } else {
+        lineW += wordW;
+      }
+    }
+    lines += lineCount;
+  }
+  return lines;
+}
+
+// Compute the main bio-blurb box so its height hugs the wrapped text instead
+// of being a fixed fraction of the viewport. The text size scales with width,
+// so the box automatically scales up/down with the viewport.
+function getMainBox() {
+  const w = width * 0.8;
+  const textSizeV = width * 0.1;
+  const lineH = width * 0.1;           // textLeading
+  const textBoxW = width * 0.7;        // box the text is wrapped in
+  textFont(header);
+  textSize(textSizeV);
+  const lines = wrappedLineCount(bioBlurb, textBoxW);
+  const textH = lines * lineH;
+  // height = text height + padding, but keep a sane minimum and never exceed
+  // the old fixed 0.8*height box
+  const h = constrain(textH + lineH * 0.6, height * 0.3, height * 0.8);
+  return { w, h };
+}
+
 function draw() {
   background(0);
+  mainBox = getMainBox(); // recompute before the particle bounce pass uses it
 
   // Browser back-button support: whenever the page leaves its default state,
   // record a history entry so a popstate (back press) resets the page instead
@@ -506,13 +611,13 @@ function draw() {
       resolveCollision(particles[i], particles[j]);
     }
   }
-  //main content box
+  //main content box (height hugs the wrapped blurb; see getMainBox())
   push();
   strokeWeight(4);
   noStroke();
   fill(magenta);
   rectMode(CENTER);
-  rect(0, 0, width * 0.8, height * 0.8);
+  rect(0, 0, mainBox.w, mainBox.h);
   textAlign(CENTER, CENTER)
   textSize(width * 0.1);
   textLeading(width * 0.1);        // line spacing
@@ -742,12 +847,21 @@ function draw() {
   if (projectMode && selectedProjectId >= 0) {
     imageBounds = []; // reset for this frame
     const proj = projects[selectedProjectId];
-    const boxW = width * 0.6;
-    const boxH = height * 0.6;
+    const boxW = width * 0.8;    // a bit wider than the old 0.6
+    const boxH = height * 0.62;  // slightly taller so the larger text fits
     const boxX = (width - boxW) / 2;
     const boxY = (height - boxH) / 2;
-    const margin = width * 0.04;
-    const descMargin = width * 0.07; // bigger margin for description
+    // Scale all project-window typography by the box's width change, so the
+    // text grows automatically if the window is ever widened further.
+    const boxScale = boxW / (width * 0.6);
+    // Viewport-aware type scale: below 1000px wide, don't let the font shrink
+    // proportionally with the window — hold it at the size it would be at
+    // 1000px so text stays readable on small screens. At >= 1000px it's 1,
+    // so larger viewports are completely unchanged.
+    const typeScale = Math.max(width, 1000) / width;
+    const margin = width * 0.04 * boxScale;
+    const descMargin = width * 0.07 * boxScale; // bigger margin for description
+    projectBox = { x: boxX, y: boxY, w: boxW, h: boxH };
 
     const g = projectOverlay;
     g.clear();
@@ -766,9 +880,9 @@ function draw() {
     // gold "back" button — styled like the WORK/BIO/LINKS/email corner buttons
     // (hard corners, header font, turquoise outline), straddling the box's
     // top-left border so it slightly overlaps the window edge
-    const backBtnW = width * 0.12;
-    const backBtnH = height * 0.07;
-    const backOverhang = width * 0.015; // how far the button pokes past the border
+    const backBtnW = width * 0.06 * boxScale * typeScale;
+    const backBtnH = height * 0.035 * boxScale * typeScale;
+    const backOverhang = width * 0.0075 * boxScale * typeScale; // how far the button pokes past the border
     const backBtnX = boxX - backOverhang;
     const backBtnY = boxY - backOverhang;
     const backHovered = mouseX >= backBtnX && mouseX <= backBtnX + backBtnW &&
@@ -788,64 +902,79 @@ function draw() {
     g.fill(0);
     g.textFont(header);
     g.textAlign(CENTER, CENTER);
-    g.textSize(width * 0.03);
-    g.textLeading(width * 0.03);
+    g.textSize(width * 0.015 * boxScale * typeScale);
+    g.textLeading(width * 0.015 * boxScale * typeScale);
     // no max-width here: with textAlign CENTER, p5 shifts x by +w/2 when a
     // width is given (unless rectMode is CENTER), which would push the label
     // off-center — so draw it exactly at the button's center instead
     g.text('back', backBtnX + backBtnW / 2, backBtnY + backBtnH / 2);
 
-    // project name (uses regular margin), below the back button
+    // project name — centered in the box (drawn line-by-line so each line is
+    // truly centered; p5 can't center wrapped text with a maxWidth reliably)
     g.fill(gold);
     g.noStroke();
-    g.textAlign(LEFT, TOP);
-    g.textSize(width * 0.03);
-    g.textLeading(width * 0.035);
-    const titleY = backBtnY + backBtnH + width * 0.02;
-    g.text(proj.name, boxX + margin, titleY, boxW - margin * 2);
+    const titleSize = width * 0.036 * boxScale * typeScale;
+    const titleLineH = width * 0.042 * boxScale * typeScale;
+    g.textFont(header);
+    g.textSize(titleSize);
+    g.textLeading(titleLineH);
+    const titleY = backBtnY + backBtnH + width * 0.02 * boxScale * typeScale;
+    const titleLines = wrapLines(proj.name, boxW - margin * 2);
+    g.textAlign(CENTER, TOP);
+    for (let i = 0; i < titleLines.length; i++) {
+      g.text(titleLines[i], boxX + boxW / 2, titleY + i * titleLineH);
+    }
 
     // description area (uses bigger descMargin)
     g.fill(0);
-    g.textSize(width * DESC_TEXT_RATIO);
-    g.textLeading(width * DESC_LINE_RATIO);
+    g.textSize(width * DESC_TEXT_RATIO * boxScale * typeScale);
+    g.textLeading(width * DESC_LINE_RATIO * boxScale * typeScale);
     const descX = boxX + descMargin;
     const descW = boxW - descMargin * 2;
-    const descTopY = titleY + width * 0.05;
+    // description starts below the (possibly multi-line) title + a gap
+    const descTopY = titleY + titleLines.length * titleLineH + width * 0.03 * boxScale * typeScale;
     const descBottomY = boxY + boxH - margin;
     const descH = descBottomY - descTopY;
 
     // estimate total text height for scroll bounds
     g.textFont(descFont);
-    const lineH = width * DESC_LINE_RATIO;
+    const lineH = width * DESC_LINE_RATIO * boxScale * typeScale;
     const paraGap = lineH * 0.6;
-    const imageMaxH = height * 0.3;
-    const imageGap = width * 0.01;     // gap between images in a row
+    const imageMaxH = height * 0.3 * boxScale;
+    const imageGap = width * 0.01 * boxScale; // gap between images in a row
     const markerRe = /^\[(image|videothumb):([\d,]+)\]$/;  // "[image:0,1]" or "[videothumb:0]"
     const splitRe = /(\[(?:image|videothumb):[\d,]+\])/;
     const sentenceRe = /(?<=\.)\s+(?=[A-Z0-9])/; // split after period + space + capital/digit
 
     // Count wrapped lines (handles \n hard breaks inside text too)
     function countWrappedLines(str, maxW) {
-      if (!str.trim()) return 0;
-      const rawLines = str.split('\n');
-      let total = 0;
-      for (const ln of rawLines) {
+      return wrapLines(str, maxW).length;
+    }
+
+    // Word-wrap `str` into lines that fit inside maxW (using the overlay's
+    // current font/size). Handles \n hard breaks inside the text.
+    function wrapLines(str, maxW) {
+      const out = [];
+      if (!str.trim()) return out;
+      for (const ln of str.split('\n')) {
         if (!ln.trim()) continue;
         const words = ln.split(' ');
-        let lineCount = 1;
-        let lineW = 0;
-        for (const word of words) {
-          const wordW = g.textWidth(word + ' ');
+        let line = words[0];
+        let lineW = g.textWidth(line + ' ');
+        for (let i = 1; i < words.length; i++) {
+          const wordW = g.textWidth(words[i] + ' ');
           if (lineW + wordW > maxW && lineW > 0) {
-            lineCount++;
+            out.push(line);
+            line = words[i];
             lineW = wordW;
           } else {
+            line += ' ' + words[i];
             lineW += wordW;
           }
         }
-        total += lineCount;
+        out.push(line);
       }
-      return total;
+      return out;
     }
 
     // Draw a play-button overlay (white circle + black triangle) centered at (cx, cy).
@@ -925,8 +1054,9 @@ function draw() {
 
     let drawY = descTopY - projectScrollY;
     g.textFont(descFont);
-    g.textSize(width * DESC_TEXT_RATIO);
+    g.textSize(width * DESC_TEXT_RATIO * boxScale * typeScale);
     g.textLeading(lineH);
+    g.textAlign(LEFT, TOP); // description text is left-aligned
 
     // primary (main) image
     if (mainImg && mainImg.width > 0) {
@@ -998,7 +1128,7 @@ function draw() {
     g.pop();
 
     // scroll indicators (minimal triangles)
-    const indicatorSize = width * 0.02;
+    const indicatorSize = width * 0.02 * boxScale * typeScale;
     const indicatorRight = boxX + boxW - margin * 0.5;
     const indicatorCenterY = (descTopY + descBottomY) / 2;
 
@@ -1027,12 +1157,17 @@ function draw() {
 
   // ── bio box (same layout as project box) ────────────────────
   if (bioMode && bioData) {
-    const boxW = width * 0.6;
-    const boxH = height * 0.6;
+    // Same responsive treatment as the project box: wider window, and a
+    // viewport-aware type scale that keeps text readable on small screens
+    // while leaving larger viewports unchanged.
+    const boxW = width * 0.8;
+    const boxH = height * 0.62;
     const boxX = (width - boxW) / 2;
     const boxY = (height - boxH) / 2;
-    const margin = width * 0.04;
-    const descMargin = width * 0.07;
+    const boxScale = boxW / (width * 0.6);
+    const typeScale = Math.max(width, 1000) / width;
+    const margin = width * 0.04 * boxScale;
+    const descMargin = width * 0.07 * boxScale;
 
     const g = bioOverlay;
     g.clear();
@@ -1051,25 +1186,25 @@ function draw() {
     g.fill(gold);
     g.noStroke();
     g.textAlign(LEFT, TOP);
-    g.textSize(width * 0.03);
-    g.textLeading(width * 0.035);
+    g.textSize(width * 0.03 * boxScale * typeScale);
+    g.textLeading(width * 0.035 * boxScale * typeScale);
     const titleY = boxY + margin;
     g.text('About', boxX + margin, titleY, boxW - margin * 2);
 
     // content area
     g.fill(0);
-    g.textSize(width * DESC_TEXT_RATIO);
-    g.textLeading(width * DESC_LINE_RATIO);
+    g.textSize(width * DESC_TEXT_RATIO * boxScale * typeScale);
+    g.textLeading(width * DESC_LINE_RATIO * boxScale * typeScale);
     const contentX = boxX + descMargin;
     const contentW = boxW - descMargin * 2;
-    const contentTopY = titleY + width * 0.05;
+    const contentTopY = titleY + width * 0.05 * boxScale * typeScale;
     const contentBottomY = boxY + boxH - margin;
     const contentH = contentBottomY - contentTopY;
 
     g.textFont(descFont);
-    const lineH = width * DESC_LINE_RATIO;
+    const lineH = width * DESC_LINE_RATIO * boxScale * typeScale;
     const paraGap = lineH * 0.6;
-    const imageMaxH = height * 0.3;
+    const imageMaxH = height * 0.3 * boxScale;
     const sentenceRe = /(?<=\.)\s+(?=[A-Z0-9])/;
 
     // same line counter used by the project box
@@ -1128,7 +1263,7 @@ function draw() {
 
     let drawY = contentTopY - bioScrollY;
     g.textFont(descFont);
-    g.textSize(width * DESC_TEXT_RATIO);
+    g.textSize(width * DESC_TEXT_RATIO * boxScale * typeScale);
     g.textLeading(lineH);
 
     // bio image
@@ -1155,7 +1290,7 @@ function draw() {
     g.pop();
 
     // scroll indicators
-    const indicatorSize = width * 0.02;
+    const indicatorSize = width * 0.02 * boxScale * typeScale;
     const indicatorRight = boxX + boxW - margin * 0.5;
     const indicatorCenterY = (contentTopY + contentBottomY) / 2;
 
@@ -1314,19 +1449,19 @@ function mouseClicked() {
     selectedProjectId = hoveredProjectId;
     projectMode = true;
   } else if (galleryMode && projectMode && !exitHovered) {
-    // close project box only when clicking outside the box area
-    const pw = width * 0.6;
-    const ph = height * 0.6;
-    const px = (width - pw) / 2;
-    const py = (height - ph) / 2;
-    const outside = mouseX < px || mouseX > px + pw || mouseY < py || mouseY > py + ph;
-    if (outside) {
-      projectMode = false;
+    // close project box only when clicking outside the box area (uses the
+    // live projectBox rect from the render pass so it matches the drawn box)
+    const b = projectBox;
+    if (b) {
+      const outside = mouseX < b.x || mouseX > b.x + b.w || mouseY < b.y || mouseY > b.y + b.h;
+      if (outside) {
+        projectMode = false;
+      }
     }
   } else if (bioMode && !exitHovered) {
-    // close bio box when clicking outside
-    const bw = width * 0.6;
-    const bh = height * 0.6;
+    // close bio box when clicking outside (keep in sync with the drawn box)
+    const bw = width * 0.8;
+    const bh = height * 0.62;
     const bx = (width - bw) / 2;
     const by = (height - bh) / 2;
     if (mouseX < bx || mouseX > bx + bw || mouseY < by || mouseY > by + bh) {
@@ -1562,8 +1697,9 @@ function getWindAt(position) {
 }
 
 function enforceMainRect(p) {
-  const rectHalfW = (width * 0.8) * 0.5;
-  const rectHalfH = (height * 0.8) * 0.5;
+  // use the same live box dims as the drawn rect (height hugs the blurb text)
+  const rectHalfW = mainBox.w * 0.5;
+  const rectHalfH = mainBox.h * 0.5;
   const half = p.size / 2; // half of the cube's edge (not a hardcoded 5)
   // local position relative to rect center
   const localX = p.position.x - width / 2;
@@ -1602,6 +1738,7 @@ function windowResized() {
   projectOverlay.textFont(header);
   bioOverlay = createGraphics(width, height);
   bioOverlay.textFont(header);
+  sizeLinksToFill(); // re-size the links to fill the new box width
   // update iframe sizing if visible
   if (vimeoIframe && vimeoIframe.elt && vimeoIframe.elt.style.display !== 'none') {
     showVimeoBackground();
