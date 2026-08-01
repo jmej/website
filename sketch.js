@@ -1,4 +1,4 @@
-let bioBlurb = "Jesse Mejía is an artist, programmer and educator."
+let bioBlurb = "Jesse Mejía is an artist, programmer, and educator."
 let projects = []; // populated in preload from projectData.json
 let projectData;
 let projectImages = [];
@@ -53,6 +53,15 @@ let imageBounds = [];           // populated during project box render for click
 let projectBackBtn = null;      // {x,y,w,h} of the gold "back" button in the project box
 let projectBox = null;          // {x,y,w,h} of the project box (kept in sync for outside-click close)
 let mainBox = { w: 0, h: 0 };   // main bio-blurb box dims, recomputed each frame in draw()
+let projectLinkLayer;           // DOM container for inline description link anchors
+let mouseHitbox = {             // virtual stationary particle for the cursor hitbox
+  position: null,
+  velocity: null,
+  size: 0,
+  birthTime: 0,
+};
+let projectLinkEls = [];        // pooled <a> elements (one per link, recreated each frame)
+let projectLinkRects = [];      // screen rects of visible inline links (this frame)
 
 // description typography — change these ratios to resize the project body text
 const DESC_TEXT_RATIO = 0.014;   // text size as fraction of screen width
@@ -62,6 +71,10 @@ const DESC_LINE_RATIO = 0.020;   // line height as fraction of screen width (lar
 const WIND_SCALE = 0.002;
 const WIND_STRENGTH = 0.08;
 const WIND_TIME_SCALE = 0.0002;
+
+// mouse hitbox bounce: how much faster cubes leave the cursor than they hit it
+// (>1 = super-elastic whack; 1 = perfect bounce; <1 = damped)
+const MOUSE_BOUNCE = 1.8;
 
 // ── Contact form ─────────────────────────────────────────────
 const FORMSPREE_ID = 'YOUR_FORM_ID'; // replace with your Formspree form ID
@@ -86,7 +99,10 @@ function preload() {
   header = loadFont('assets/Team-Athletics-Freeware.ttf');
   descFont = loadFont('assets/SpaceGrotesk-VariableFont_wght.ttf');
   //needed a callback to make the map work since loadJSON is async
-  loadJSON('assets/projectData.json', data => {
+  // cache-buster: projectData.json is frequently edited, and unlike sketch.js
+  // it has no ?v= query on the script tag — this keeps the browser from
+  // serving a stale copy that predates the most recent JSON changes
+  loadJSON('assets/projectData.json?v=18', data => {
     projects = Object.values(data).map(Project.fromJSON);
     console.log(data);
     for (let i = 0; i < projects.length; i++) {
@@ -101,7 +117,7 @@ function preload() {
     }
   });
   // load bio data and image
-  loadJSON('assets/bio.json', data => { bioData = data; });
+  loadJSON('assets/bio.json?v=18', data => { bioData = data; });
   bioImage = loadImage('assets/' + encodeURIComponent('P1140049.jpg'));
 }
 
@@ -124,6 +140,23 @@ function setup() {
   createContactForm(); // p5.js DOM overlay for the contact form
   createLinks();       // p5.js DOM overlay for the links list
   createVimeoIframe(); // create iframe (hidden by default)
+
+  // DOM layer that holds the clickable <a> anchors for inline description
+  // links. It sits above the canvas (so anchors receive clicks) but below the
+  // full-screen overlays. pointer-events:none lets clicks pass through except
+  // exactly on the anchors.
+  // NOTE: this must live in <body>, NOT inside the canvas element — DOM
+  // children of a <canvas> are fallback content and never render, which would
+  // make the anchors invisible and unclickable. The canvas fills the viewport
+  // at (0,0), so fixed positioning aligns 1:1 with the overlay buffer.
+  projectLinkLayer = createDiv('');
+  projectLinkLayer.style('position', 'fixed');
+  projectLinkLayer.style('left', '0');
+  projectLinkLayer.style('top', '0');
+  projectLinkLayer.style('width', '100vw');
+  projectLinkLayer.style('height', '100vh');
+  projectLinkLayer.style('pointer-events', 'none');
+  projectLinkLayer.style('z-index', '5');
 
   // Listen for Vimeo's postMessage "play" event to dismiss the loading text.
   window.addEventListener('message', function (e) {
@@ -519,6 +552,43 @@ function drawOverlayPlane(g) {
   perspective(); // restore the default perspective camera for the 3D scene
 }
 
+// Position pooled <a> anchors over the inline description links drawn on the
+// canvas this frame. Rects are in overlay-buffer coordinates, which map 1:1
+// to screen pixels (the overlay is drawn under an ortho projection). Anchors
+// are invisible (the gold/underline text is painted on the canvas) but receive
+// clicks and open the link in a new tab. Reuses existing elements each frame.
+function syncProjectLinks(rects) {
+  if (!projectLinkLayer) return;
+  // grow the pool if needed
+  while (projectLinkEls.length < rects.length) {
+    const a = createA('#', '', '_blank');
+    a.parent(projectLinkLayer);
+    a.style('position', 'absolute');
+    a.style('display', 'block');
+    a.style('cursor', 'pointer');
+    a.style('color', 'transparent'); // text is drawn on the canvas below
+    a.style('text-decoration', 'none');
+    a.style('pointer-events', 'auto'); // layer is pointer-events:none
+    a.elt.addEventListener('click', (e) => e.stopPropagation());
+    projectLinkEls.push(a);
+  }
+  for (let i = 0; i < projectLinkEls.length; i++) {
+    const a = projectLinkEls[i];
+    if (i < rects.length) {
+      const r = rects[i];
+      a.attribute('href', r.url);
+      a.elt.textContent = r.label; // invisible but readable by screen readers
+      a.style('left', r.x + 'px');
+      a.style('top', r.y + 'px');
+      a.style('width', r.w + 'px');
+      a.style('height', r.h + 'px');
+      a.style('display', 'block');
+    } else {
+      a.style('display', 'none'); // hide unused pooled anchors
+    }
+  }
+}
+
 // Count how many lines `str` wraps to inside a maxW-wide box, using the
 // currently set font/size on the main canvas. Same WORD-wrap logic as p5's
 // textWrap(WORD) used when the blurb is drawn.
@@ -611,6 +681,8 @@ function draw() {
       resolveCollision(particles[i], particles[j]);
     }
   }
+  // mouse hitbox: floating cubes bounce off the cursor with the same logic
+  handleMouseHitbox();
   //main content box (height hugs the wrapped blurb; see getMainBox())
   push();
   strokeWeight(4);
@@ -846,6 +918,7 @@ function draw() {
   //project box (drawn via 2D overlay for reliable positioning)
   if (projectMode && selectedProjectId >= 0) {
     imageBounds = []; // reset for this frame
+    projectLinkRects = []; // reset inline-link rects for this frame
     const proj = projects[selectedProjectId];
     const boxW = width * 0.8;    // a bit wider than the old 0.6
     const boxH = height * 0.62;  // slightly taller so the larger text fits
@@ -913,12 +986,17 @@ function draw() {
     // truly centered; p5 can't center wrapped text with a maxWidth reliably)
     g.fill(gold);
     g.noStroke();
-    const titleSize = width * 0.036 * boxScale * typeScale;
-    const titleLineH = width * 0.042 * boxScale * typeScale;
+    // Title type scale: like typeScale but with a lower floor (600px instead of
+    // 1000px), so titles scale down on mobile/small viewports instead of being
+    // held at the 1000px size. At >= 600px it's 1, so mid/large screens are
+    // unchanged; the description text keeps the original typeScale floor.
+    const titleScale = Math.max(width, 600) / width;
+    const titleSize = width * 0.036 * boxScale * titleScale;
+    const titleLineH = width * 0.042 * boxScale * titleScale;
     g.textFont(header);
     g.textSize(titleSize);
     g.textLeading(titleLineH);
-    const titleY = backBtnY + backBtnH + width * 0.02 * boxScale * typeScale;
+    const titleY = backBtnY + backBtnH + width * 0.02 * boxScale * titleScale;
     const titleLines = wrapLines(proj.name, boxW - margin * 2);
     g.textAlign(CENTER, TOP);
     for (let i = 0; i < titleLines.length; i++) {
@@ -932,7 +1010,7 @@ function draw() {
     const descX = boxX + descMargin;
     const descW = boxW - descMargin * 2;
     // description starts below the (possibly multi-line) title + a gap
-    const descTopY = titleY + titleLines.length * titleLineH + width * 0.03 * boxScale * typeScale;
+    const descTopY = titleY + titleLines.length * titleLineH + width * 0.03 * boxScale * titleScale;
     const descBottomY = boxY + boxH - margin;
     const descH = descBottomY - descTopY;
 
@@ -945,11 +1023,6 @@ function draw() {
     const markerRe = /^\[(image|videothumb):([\d,]+)\]$/;  // "[image:0,1]" or "[videothumb:0]"
     const splitRe = /(\[(?:image|videothumb):[\d,]+\])/;
     const sentenceRe = /(?<=\.)\s+(?=[A-Z0-9])/; // split after period + space + capital/digit
-
-    // Count wrapped lines (handles \n hard breaks inside text too)
-    function countWrappedLines(str, maxW) {
-      return wrapLines(str, maxW).length;
-    }
 
     // Word-wrap `str` into lines that fit inside maxW (using the overlay's
     // current font/size). Handles \n hard breaks inside the text.
@@ -975,6 +1048,85 @@ function draw() {
         out.push(line);
       }
       return out;
+    }
+
+    // Tokenize inline links "[label](url)" into segments. Plain text has
+    // url === null; link segments carry the target URL.
+    function tokenizeInlineLinks(str) {
+      const segs = [];
+      const re = /\[([^\]]+)\]\(([^)\s]+)\)/g;
+      let last = 0;
+      let m;
+      while ((m = re.exec(str)) !== null) {
+        if (m.index > last) segs.push({ text: str.slice(last, m.index), url: null });
+        segs.push({ text: m[1], url: m[2] });
+        last = m.index + m[0].length;
+      }
+      if (last < str.length) segs.push({ text: str.slice(last), url: null });
+      return segs;
+    }
+
+    // Word-wrap a tokenized segment list into visual lines, treating each
+    // link as an atomic unit (a link never gets split across lines). Each
+    // line is an array of { text, url, w, x } where x is the left offset
+    // within the line. Measured with the overlay's current font/size.
+    function layoutLinkSegments(segs, maxW) {
+      const lines = [];
+      let line = [];
+      let lineW = 0;
+      function flush() {
+        if (!line.length) return;
+        // strip any leading space from the first atom when it starts a line
+        const first = line[0];
+        const m = first.text.match(/^\s+/);
+        if (m && first.url === null) {
+          const lead = m[0];
+          first.text = first.text.slice(lead.length);
+          first.w = g.textWidth(first.text);
+        }
+        let x = 0;
+        for (const s of line) { s.x = x; x += s.w; }
+        lines.push(line);
+        line = [];
+        lineW = 0;
+      }
+      for (const seg of segs) {
+        if (seg.url) {
+          const w = g.textWidth(seg.text);
+          if (lineW + w > maxW && lineW > 0) flush();
+          line.push({ text: seg.text, url: seg.url, w });
+          lineW += w;
+        } else {
+          // preserve the leading space of the segment (gap after a link) and a
+          // trailing space after each word, so drawn words keep their spacing
+          const m = seg.text.match(/^(\s*)(.*)$/);
+          const lead = m[1] || '';
+          const rest = m[2] || '';
+          const words = rest.split(' ');
+          // segment is only whitespace (e.g. space between two links)
+          if (rest.trim() === '') {
+            if (lead) {
+              const w = g.textWidth(' ');
+              if (lineW + w > maxW && lineW > 0) flush();
+              line.push({ text: ' ', url: null, w });
+              lineW += w;
+            }
+            continue;
+          }
+          let first = true;
+          for (const word of words) {
+            if (word === '') continue;
+            const text = (first && lead) ? (lead + word + ' ') : (word + ' ');
+            first = false;
+            const w = g.textWidth(text);
+            if (lineW + w > maxW && lineW > 0) flush();
+            line.push({ text, url: null, w });
+            lineW += w;
+          }
+        }
+      }
+      flush();
+      return lines;
     }
 
     // Draw a play-button overlay (white circle + black triangle) centered at (cx, cy).
@@ -1036,7 +1188,7 @@ function draw() {
           for (let i = 0; i < sentences.length; i++) {
             const s = sentences[i].trim();
             if (!s) continue;
-            totalTextH += countWrappedLines(s, descW) * lineH;
+            totalTextH += layoutLinkSegments(tokenizeInlineLinks(s), descW).length * lineH;
             totalTextH += paraGap; // double break after every period
           }
         }
@@ -1054,7 +1206,8 @@ function draw() {
 
     let drawY = descTopY - projectScrollY;
     g.textFont(descFont);
-    g.textSize(width * DESC_TEXT_RATIO * boxScale * typeScale);
+    const descTextSize = width * DESC_TEXT_RATIO * boxScale * typeScale;
+    g.textSize(descTextSize);
     g.textLeading(lineH);
     g.textAlign(LEFT, TOP); // description text is left-aligned
 
@@ -1109,15 +1262,44 @@ function draw() {
             drawY += rowH + paraGap;
           }
         } else if (part.trim()) {
-          // text — split into sentences, each on its own line
+          // text — split into sentences, each on its own line. Inline links
+          // ([label](url)) are drawn in gold + underlined, and their screen
+          // rects are recorded so DOM anchors (createA) can overlay them.
           g.fill(0);
           const sentences = part.split(sentenceRe);
           for (let i = 0; i < sentences.length; i++) {
             const sentence = sentences[i].trim();
             if (!sentence) continue;
-            const sLines = countWrappedLines(sentence, descW);
-            g.text(sentence, descX, drawY, descW);
-            drawY += sLines * lineH;
+            const lines = layoutLinkSegments(tokenizeInlineLinks(sentence), descW);
+            for (const line of lines) {
+              for (const seg of line) {
+                const x = descX + seg.x;
+                if (seg.url) {
+                  // gold + underline on the canvas
+                  g.fill(gold);
+                  g.text(seg.text, x, drawY);
+                  g.stroke(gold);
+                  g.strokeWeight(1);
+                  // NOTE: pass the text size explicitly. p5's textAscent()
+                  // falls back to the font's parent renderer (the main WEBGL
+                  // canvas) when given no argument, so g.textAscent() would
+                  // return an ascent based on the wrong text size.
+                  const ascent = descFont._textAscent(descTextSize);
+                  const baseline = drawY + ascent;
+                  g.line(x, baseline + 2, x + seg.w, baseline + 2);
+                  g.noStroke();
+                  g.fill(0);
+                  // only overlay a clickable anchor when the link's line is
+                  // fully inside the visible description area
+                  if (drawY >= descTopY && drawY + lineH <= descTopY + descH) {
+                    projectLinkRects.push({ x, y: drawY, w: seg.w, h: lineH, url: seg.url, label: seg.text });
+                  }
+                } else {
+                  g.text(seg.text, x, drawY);
+                }
+              }
+              drawY += lineH;
+            }
             drawY += paraGap; // double break after every period
           }
         }
@@ -1153,6 +1335,11 @@ function draw() {
 
     // render the overlay as a textured plane in WEBGL, centered on screen
     drawOverlayPlane(g);
+
+    // position DOM <a> anchors over this frame's visible inline links
+    syncProjectLinks(projectLinkRects);
+  } else {
+    syncProjectLinks([]); // hide any leftover inline-link anchors
   }
 
   // ── bio box (same layout as project box) ────────────────────
@@ -1573,8 +1760,8 @@ class Particle{
     this.position.add(this.velocity);
     // apply subtle swirling wind force
     this.velocity.add( getWindAt(this.position) );
-    // keep speeds reasonable
-    this.velocity.limit(3);
+    // keep speeds reasonable (raised from 3 so mouse bounces can actually fly)
+    this.velocity.limit(6);
 
     if(this.enforceMainRect){
       enforceMainRect(this);
@@ -1672,6 +1859,62 @@ function  resolveCollision(a, b) {
 
       a.birthTime = millis();
       b.birthTime = millis();
+  }
+}
+
+// Mouse collision: treat the cursor as an immovable cube so floating cubes
+// bounce off a hitbox around the mouse. Unlike cube-cube collisions (which
+// swap equal masses), the hitbox is fixed, so the cube's normal velocity is
+// reflected like a ball off a wall, while the tangential component survives.
+// Only active in the floating/bouncing mode (not gallery or any overlay).
+function handleMouseHitbox() {
+  // skip when the cursor is off-canvas or the scene isn't in floating mode
+  if (mouseX < 0 || mouseX > width || mouseY < 0 || mouseY > height) return;
+  if (galleryMode || projectMode || bioMode || linksMode || contactMode || videoMode) return;
+
+  // (re)anchor the virtual particle to the cursor each frame
+  if (!mouseHitbox.position) {
+    mouseHitbox.position = createVector(mouseX, mouseY);
+    mouseHitbox.velocity = createVector(0, 0);
+  } else {
+    mouseHitbox.position.set(mouseX, mouseY);
+    mouseHitbox.velocity.set(0, 0);
+  }
+  // hitbox diameter: a bit larger than a cube so it's easy to catch/throw them
+  mouseHitbox.size = width / 10;
+
+  for (let p of particles) {
+    resolveMouseCollision(p);
+  }
+}
+
+// Single-body bounce off the fixed cursor hitbox (circle approximation).
+function resolveMouseCollision(p) {
+  const minDist = (p.size + mouseHitbox.size) / 2;
+  let n = p5.Vector.sub(p.position, mouseHitbox.position);
+  let d = n.mag();
+  if (d === 0) {
+    // jitter to avoid divide-by-zero
+    n = createVector(random(-1, 1), random(-1, 1));
+    d = n.mag();
+  }
+  if (d < minDist) {
+    n.normalize();
+    // push the cube fully out of the hitbox (the cursor never moves)
+    const overlap = minDist - d;
+    p.position.add(p5.Vector.mult(n, overlap));
+
+    // reflect the normal component of the cube's velocity off the fixed hitbox
+    // and AMPLIFY it (MOUSE_BOUNCE > 1) so cubes launch off the cursor faster
+    // than they arrived — a super-elastic "whack".
+    const vNorm = p5.Vector.dot(p.velocity, n);
+    if (vNorm < 0) { // only reflect when moving INTO the hitbox
+      const normal = p5.Vector.mult(n, vNorm * MOUSE_BOUNCE);
+      const tangent = p5.Vector.sub(p.velocity, p5.Vector.mult(n, vNorm));
+      p.velocity = p5.Vector.sub(tangent, normal);
+    }
+
+    p.birthTime = millis();
   }
 }
 

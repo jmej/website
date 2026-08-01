@@ -21,7 +21,7 @@
   },
   {
     "name": "unityGain",
-    "description": "I designed and built a High Density Loudspeaker Array (HDLA) at Portland Community College called unityGain. \n\n unityGain is a 32 channel Meyer speaker system driven by motu AVB interfaces and spatialization software that I wrote in Pure Data and MaxMSP. \n\n In creating this system I had three primary goals: to build a high quality, excellent sounding system capable of ambisonic, vbap, and other spatialization techniques; to create a platform making these exciting new surround sound formats accessible to artists outside of traditional research institutions; and to get students involved in every aspect of system design, implementation, and event production.",
+    "description": "I designed and built a High Density Loudspeaker Array (HDLA) at Portland Community College called unityGain. \n\n unityGain is a 32 channel Meyer speaker system driven by motu AVB interfaces and spatialization software that I wrote in [Pure Data](https://puredata.info) and MaxMSP. \n\n In creating this system I had three primary goals: to build a high quality, excellent sounding system capable of ambisonic, vbap, and other spatialization techniques; to create a platform making these exciting new surround sound formats accessible to artists outside of traditional research institutions; and to get students involved in every aspect of system design, implementation, and event production.",
     "main-image": "unityGain1.jpg",
     "more-images": ["interactivity_lab2.jpg"],
     "video": null
