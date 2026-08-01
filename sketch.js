@@ -25,10 +25,10 @@ let bioOverlay;
 let biohovered = false;
 
 let linksMode = false;             // true when the links overlay is open
-let linksOverlay;
 let linkshovered = false;
-let linksScrollY = 0;
-let linkBounds = [];               // clickable link rectangles rendered in the links overlay
+let linksPanel;                    // full-screen DOM overlay for the links list
+let linksBox;                      // centered box inside linksPanel
+let linksVisible = false;          // whether linksPanel is currently shown
 
 let contactMode = false;             // true when the contact overlay is open
 let contactForm;
@@ -37,6 +37,7 @@ let contactSubmitted = false;       // true after successful form submission
 
 let galleryMode = false;
 let exitHovered = false;
+let historyPushed = false;          // true while the current non-default state is recorded in history
 let hoveredProjectId = -1; // project index of the currently hovered cube
 let projectMode = false;
 let selectedProjectId = -1;
@@ -47,6 +48,7 @@ let descFont;
 let videoMode = false;          // true when a full-screen Vimeo is playing
 let videoLoaded = false;        // true once the Vimeo video has started playing
 let imageBounds = [];           // populated during project box render for click detection
+let projectBackBtn = null;      // {x,y,w,h} of the gold "back" button in the project box
 
 // description typography — change these ratios to resize the project body text
 const DESC_TEXT_RATIO = 0.014;   // text size as fraction of screen width
@@ -63,12 +65,10 @@ const FORMSPREE_URL = `https://formspree.io/f/${FORMSPREE_ID}`;
 
 // ── Links overlay ────────────────────────────────────────────
 const LINKS = [
-  { label: 'Parallel Studio',     url: 'https://parallel.studio' },
-  { label: 'Instagram', url: 'https://instagram.com/bananeurysm' },
-  { label: 'GitHub',    url: 'https://github.com/jmej' },
-  { label: 'Soundcloud',    url: 'https://soundcloud.com/losdatos' },
-
-  
+  { label: 'Parallel Studio', url: 'https://parallel.studio' },
+  { label: 'Instagram',       url: 'https://instagram.com/bananeurysm' },
+  { label: 'GitHub',          url: 'https://github.com/jmej' },
+  { label: 'Soundcloud',      url: 'https://soundcloud.com/losdatos' },
 ];
 
 //cube rotation
@@ -117,9 +117,8 @@ function setup() {
   projectOverlay.textFont(header);
   bioOverlay = createGraphics(width, height); // 2D overlay for bio box
   bioOverlay.textFont(header);
-  linksOverlay = createGraphics(width, height); // 2D overlay for links box
-  linksOverlay.textFont(header);
   createContactForm(); // p5.js DOM overlay for the contact form
+  createLinks();       // p5.js DOM overlay for the links list
   createVimeoIframe(); // create iframe (hidden by default)
 
   // Listen for Vimeo's postMessage "play" event to dismiss the loading text.
@@ -131,6 +130,17 @@ function setup() {
         showVimeoBackground();
       }
     } catch (_) { /* ignore */ }
+  });
+
+  // Browser back button: reset to the default state when the app is showing
+  // a gallery/project/overlay (we pushed an entry when it opened). If the app
+  // is already in the default state, do nothing so the browser truly goes
+  // back to the previous page.
+  window.addEventListener('popstate', function () {
+    if (!isDefaultState()) {
+      resetToDefaultState();
+      historyPushed = false;
+    }
   });
 }
 
@@ -283,6 +293,113 @@ function createContactForm() {
   });
 }
 
+// ── Links overlay (p5.js DOM overlay, no separate CSS) ───────
+// Mirrors createContactForm(): build the DOM once in setup(), then
+// show/hide it from draw() based on linksMode. Real <a> anchors replace
+// the old WEBGL-textured buffer + manual hit-testing that kept drifting.
+function createLinks() {
+  // Full-screen backdrop
+  linksPanel = createDiv('');
+  linksPanel.style('position', 'fixed');
+  linksPanel.style('left', '0');
+  linksPanel.style('top', '0');
+  linksPanel.style('width', '100vw');
+  linksPanel.style('height', '100vh');
+  linksPanel.style('background', 'rgba(64,224,208,0.88)'); // tTurquoise
+  linksPanel.style('display', 'flex');
+  linksPanel.style('align-items', 'center');
+  linksPanel.style('justify-content', 'center');
+  linksPanel.style('z-index', '10000');
+  linksPanel.style('pointer-events', 'auto');
+
+  // Centered box (60 % × 60 %) with magenta border and turquoise fill
+  linksBox = createDiv('');
+  linksBox.parent(linksPanel);
+  linksBox.style('width', '60vw');
+  linksBox.style('height', '60vh');
+  linksBox.style('border', '4px solid rgb(255,0,255)');     // magenta
+  linksBox.style('box-sizing', 'border-box');
+  linksBox.style('background', 'rgb(64,224,208)');          // turquoise
+  linksBox.style('display', 'flex');
+  linksBox.style('flex-direction', 'column');
+  linksBox.style('padding', '2vw');
+  linksBox.style('position', 'relative');
+  linksBox.style('overflow', 'auto');
+  linksBox.style('font-family', '"Team Athletics Freeware", sans-serif');
+
+  // "Links" title (Team Athletics font, gold)
+  const title = createDiv('Links');
+  title.parent(linksBox);
+  title.style('color', 'rgb(255,200,87)');                  // gold
+  title.style('font-family', '"Team Athletics Freeware", sans-serif');
+  title.style('font-size', '3vw');
+  title.style('line-height', '3vw');
+  title.style('margin-bottom', '1.5vh');
+  title.style('flex-shrink', '0');
+
+  // Close "X" button (top-right corner of the box)
+  const closeBtn = createDiv('✕');
+  closeBtn.parent(linksBox);
+  closeBtn.style('position', 'absolute');
+  closeBtn.style('top', '1vw');
+  closeBtn.style('right', '1.5vw');
+  closeBtn.style('font-size', '24px');
+  closeBtn.style('cursor', 'pointer');
+  closeBtn.style('color', '#000');
+  closeBtn.style('font-family', 'sans-serif');
+  closeBtn.style('line-height', '1');
+  closeBtn.style('user-select', 'none');
+  closeBtn.mouseClicked(() => { linksMode = false; });
+
+  // Each link is a real <a> anchor: native navigation, gold hover, always
+  // underlined — matching the old overlay's look. vw units keep the size in
+  // sync with the canvas so the layout survives window resizes.
+  for (const link of LINKS) {
+    if (!link.url) continue;
+    const a = createA(link.url, link.label, '_blank');
+    a.parent(linksBox);
+    a.attribute('rel', 'noopener');
+    a.style('display', 'block');
+    a.style('flex-shrink', '0'); // keep full size so the box scrolls instead
+    a.style('color', '#000');
+    a.style('text-decoration', 'underline');
+    a.style('text-decoration-thickness', '1px');
+    a.style('text-decoration-color', 'rgba(0,0,0,0.63)'); // old 160-alpha underline
+    a.style('text-underline-offset', '0.25em');
+    a.style('font-size', '3vw');     // old linkSize = width * 0.03
+    a.style('line-height', '4.5vw'); // old linkLeading = width * 0.045
+    a.style('cursor', 'pointer');
+    // Hover styling via JS listeners (no CSS file needed)
+    a.elt.addEventListener('mouseenter', () => {
+      a.style('color', 'rgb(255,200,87)');              // gold
+      a.style('text-decoration-thickness', '3px');
+      a.style('text-decoration-color', '#000');
+    });
+    a.elt.addEventListener('mouseleave', () => {
+      a.style('color', '#000');
+      a.style('text-decoration-thickness', '1px');
+      a.style('text-decoration-color', 'rgba(0,0,0,0.63)');
+    });
+    // Close the overlay when a link is clicked (the new tab still opens
+    // natively — this listener does not preventDefault).
+    a.elt.addEventListener('click', () => { linksMode = false; });
+  }
+
+  linksPanel.hide();
+  linksVisible = false;
+
+  // Close only when clicking the backdrop itself (not the box / links).
+  linksPanel.elt.addEventListener('click', function (e) {
+    if (e.target === linksPanel.elt) {
+      linksMode = false;
+    }
+  });
+  // Prevent clicks inside the box from bubbling up to the backdrop
+  linksBox.elt.addEventListener('click', function (e) {
+    e.stopPropagation();
+  });
+}
+
 function submitContactForm() {
   const cf = contactForm;
   if (!cf) return;
@@ -324,8 +441,43 @@ function submitContactForm() {
   });
 }
 
+// Render a 2D overlay buffer as a full-screen textured plane at exactly 1:1.
+// The default p5 WEBGL camera places the eye at z=800, so a plane drawn at
+// z=250 is only 550 world units away — perspective magnifies it by 800/550
+// (~1.45x) and shifts it, breaking every mouse hit-test on overlay content
+// (back button, video thumbnails, etc.). Drawing the plane under an
+// orthographic projection maps buffer pixels 1:1 to screen pixels.
+function drawOverlayPlane(g) {
+  push();
+  ortho(-width / 2, width / 2, -height / 2, height / 2, 0, width + height + 800);
+  translate(0, 0, 250); // keep z=250 for depth layering above the cubes
+  texture(g);
+  noStroke();
+  plane(width, height);
+  pop();
+  perspective(); // restore the default perspective camera for the 3D scene
+}
+
 function draw() {
   background(0);
+
+  // Browser back-button support: whenever the page leaves its default state,
+  // record a history entry so a popstate (back press) resets the page instead
+  // of leaving. Runs before the videoMode early-return so it tracks every frame.
+  if (!isDefaultState()) {
+    if (!historyPushed) {
+      history.pushState({ p5back: true }, '');
+      historyPushed = true;
+    }
+  } else if (historyPushed) {
+    historyPushed = false;
+    // If we're back in the default state while a pushed entry is still current
+    // (e.g. the on-canvas "back" button was pressed), drop that stale entry so
+    // the browser back button truly leaves from the default state.
+    if (history.state && history.state.p5back) {
+      history.go(-1);
+    }
+  }
 
   // When a full-screen video is playing, show loading text or keep canvas black
   if (videoMode) {
@@ -532,8 +684,9 @@ function draw() {
   text("email", 0, 0, contactW);
   pop();
 
-  // exit button (appears centered when gallery/bio/links/contact mode is active)
-  if (galleryMode || bioMode || linksMode || contactMode) {
+  // exit button (appears centered when gallery/bio/links/contact mode is active,
+  // but never over an open project — the project window has its own gold back button)
+  if ((galleryMode || bioMode || linksMode || contactMode) && !projectMode) {
     const exitBtnW = width * 0.1;
     const exitBtnH = height * 0.08;
     const exitX = width / 2;
@@ -545,7 +698,12 @@ function draw() {
     exitHovered = mouseX >= eLeft && mouseX <= eRight && mouseY >= eTop && mouseY <= eBottom;
 
     push();
-    translate(-width/2 + exitX, -height/2 + exitY, 999); // z=999 to appear above the overlay planes (z=250)
+    // Render under an orthographic projection so the button is exactly 1:1 with
+    // its hit box. z=400 keeps it in front of the overlay planes (z=250) and
+    // inside the camera frustum; under perspective, z=400 magnifies the button
+    // 2x (eye at z=800), making its hit box half the visual size.
+    ortho(-width / 2, width / 2, -height / 2, height / 2, 0, width + height + 800);
+    translate(-width/2 + exitX, -height/2 + exitY, 400);
     strokeWeight(4);
     stroke(turquoise);
     rectMode(CENTER);
@@ -563,8 +721,21 @@ function draw() {
     textSize(width * 0.05);
     text("back", 0, 0);
     pop();
+    perspective(); // restore the default perspective camera for the 3D scene
   } else {
     exitHovered = false;
+  }
+
+  // ── links overlay (p5.js DOM) — keep DOM visibility in sync with linksMode ──
+  if (linksMode) {
+    if (!linksVisible) {
+      linksVisible = true;
+      linksBox.elt.scrollTop = 0;   // restart at the top like the old overlay
+      linksPanel.style('display', 'flex'); // flex (not .show()) so centering works
+    }
+  } else if (linksVisible) {
+    linksVisible = false;
+    linksPanel.hide();
   }
 
   //project box (drawn via 2D overlay for reliable positioning)
@@ -592,13 +763,45 @@ function draw() {
     g.noFill();
     g.rect(boxX, boxY, boxW, boxH);
 
-    // project name (uses regular margin)
+    // gold "back" button — styled like the WORK/BIO/LINKS/email corner buttons
+    // (hard corners, header font, turquoise outline), straddling the box's
+    // top-left border so it slightly overlaps the window edge
+    const backBtnW = width * 0.12;
+    const backBtnH = height * 0.07;
+    const backOverhang = width * 0.015; // how far the button pokes past the border
+    const backBtnX = boxX - backOverhang;
+    const backBtnY = boxY - backOverhang;
+    const backHovered = mouseX >= backBtnX && mouseX <= backBtnX + backBtnW &&
+                        mouseY >= backBtnY && mouseY <= backBtnY + backBtnH;
+    projectBackBtn = { x: backBtnX, y: backBtnY, w: backBtnW, h: backBtnH };
+
+    g.strokeWeight(4);
+    g.stroke(turquoise);
+    g.rectMode(CORNER);
+    if (backHovered) {
+      g.fill(255, 224, 122); // lighter gold on hover
+    } else {
+      g.fill(gold);
+    }
+    g.rect(backBtnX, backBtnY, backBtnW, backBtnH);
+    g.noStroke();
+    g.fill(0);
+    g.textFont(header);
+    g.textAlign(CENTER, CENTER);
+    g.textSize(width * 0.03);
+    g.textLeading(width * 0.03);
+    // no max-width here: with textAlign CENTER, p5 shifts x by +w/2 when a
+    // width is given (unless rectMode is CENTER), which would push the label
+    // off-center — so draw it exactly at the button's center instead
+    g.text('back', backBtnX + backBtnW / 2, backBtnY + backBtnH / 2);
+
+    // project name (uses regular margin), below the back button
     g.fill(gold);
     g.noStroke();
     g.textAlign(LEFT, TOP);
     g.textSize(width * 0.03);
     g.textLeading(width * 0.035);
-    const titleY = boxY + margin;
+    const titleY = backBtnY + backBtnH + width * 0.02;
     g.text(proj.name, boxX + margin, titleY, boxW - margin * 2);
 
     // description area (uses bigger descMargin)
@@ -819,12 +1022,7 @@ function draw() {
     }
 
     // render the overlay as a textured plane in WEBGL, centered on screen
-    push();
-    translate(0, 0, 250);
-    texture(g);
-    noStroke();
-    plane(width, height);
-    pop();
+    drawOverlayPlane(g);
   }
 
   // ── bio box (same layout as project box) ────────────────────
@@ -977,171 +1175,34 @@ function draw() {
     }
 
     // render as textured plane
-    push();
-    translate(0, 0, 250);
-    texture(g);
-    noStroke();
-    plane(width, height);
-    pop();
+    drawOverlayPlane(g);
   }
 
-  if (linksMode && LINKS.length > 0) {
-    const boxW = width * 0.6;
-    const boxH = height * 0.6;
-    const boxX = (width - boxW) / 2;
-    const boxY = (height - boxH) / 2;
-    const margin = width * 0.04;
-
-    const g = linksOverlay;
-    g.clear();
-
-    // dimmed backdrop
-    g.noStroke();
-    g.fill(tTurquoise);
-    g.rect(0, 0, width, height);
-
-    // centered border with title
-    g.strokeWeight(4);
-    g.stroke(magenta);
-    g.noFill();
-    g.rect(boxX, boxY, boxW, boxH);
-
-    g.fill(gold);
-    g.noStroke();
-    g.textAlign(LEFT, TOP);
-    g.textSize(width * 0.03);
-    g.textLeading(width * 0.035);
-    const titleY = boxY + margin;
-    g.text('Links', boxX + margin, titleY, boxW - margin * 2);
-
-    const linkSize = width * 0.03;
-    const linkLeading = width * 0.045;
-    const listX = boxX + width * 0.07;
-    const listW = boxW - width * 0.14;
-    const listTopY = titleY + width * 0.05;
-    const listBottomY = boxY + boxH - margin;
-    const listH = listBottomY - listTopY;
-
-    g.textFont(header);
-    g.textSize(linkSize);
-    g.textLeading(linkLeading);
-
-    // wrapped-line count (same logic as the project/bio boxes)
-    function countLinkLines(label) {
-      const words = label.split(' ');
-      let lineCount = 1;
-      let lineW = 0;
-      for (const word of words) {
-        const wordW = g.textWidth(word + ' ');
-        if (lineW + wordW > listW && lineW > 0) {
-          lineCount++;
-          lineW = wordW;
-        } else {
-          lineW += wordW;
-        }
-      }
-      return lineCount;
-    }
-
-    // ── measurement pass ──
-    let totalH = 0;
-    for (const link of LINKS) {
-      totalH += countLinkLines(link.label) * linkLeading;
-    }
-    const scrollMax = Math.max(0, totalH - listH);
-    linksScrollY = constrain(linksScrollY, 0, scrollMax);
-
-    // ── render pass ──
-    g.push();
-    g.drawingContext.save();
-    g.drawingContext.beginPath();
-    g.drawingContext.rect(listX, listTopY, listW, listH);
-    g.drawingContext.clip();
-
-    linkBounds = [];
-    let drawY = listTopY - linksScrollY;
-    for (const link of LINKS) {
-      const itemH = countLinkLines(link.label) * linkLeading;
-      const inView = drawY + itemH > listTopY && drawY < listBottomY;
-      const hovered = mouseX >= listX && mouseX <= listX + listW &&
-                      mouseY >= drawY && mouseY <= drawY + itemH;
-
-      // text — always noStroke so a leftover stroke never outlines the glyphs
-      g.noStroke();
-      if (hovered) {
-        g.fill(gold);
-      } else {
-        g.fill(0);
-      }
-      g.text(link.label, listX, drawY, listW);
-
-      // underline — always drawn (thicker + darker on hover), anchored near the
-      // bottom of the row so it sits clearly below the glyphs (textAscent/
-      // textDescent are unreliable for display fonts)
-      const underlineY = drawY + itemH - linkSize * 0.35;
-      g.strokeWeight(hovered ? 3 : 1);
-      g.stroke(0, 0, 0, hovered ? 255 : 160);
-      g.line(listX, underlineY, listX + g.textWidth(link.label), underlineY);
-      g.noStroke(); // leave stroke off for the rest of the list
-
-      if (inView) {
-        linkBounds.push({ x: listX, y: drawY, w: listW, h: itemH, url: link.url });
-      }
-      drawY += itemH;
-    }
-
-    g.drawingContext.restore();
-    g.pop();
-
-    // scroll indicators
-    const indicatorSize = width * 0.02;
-    const indicatorRight = boxX + boxW - margin * 0.5;
-    const indicatorCenterY = (listTopY + listBottomY) / 2;
-
-    if (linksScrollY > 0) {
-      g.fill(0);
-      g.noStroke();
-      g.triangle(indicatorRight, indicatorCenterY - indicatorSize * 2.5,
-        indicatorRight - indicatorSize * 1.5, indicatorCenterY - indicatorSize * 1,
-        indicatorRight + indicatorSize * 1.5, indicatorCenterY - indicatorSize * 1);
-    }
-    if (linksScrollY < scrollMax) {
-      g.fill(0);
-      g.noStroke();
-      g.triangle(indicatorRight, indicatorCenterY + indicatorSize * 2.5,
-        indicatorRight - indicatorSize * 1.5, indicatorCenterY + indicatorSize * 1,
-        indicatorRight + indicatorSize * 1.5, indicatorCenterY + indicatorSize * 1);
-    }
-
-    // render as textured plane
-    push();
-    translate(0, 0, 250);
-    texture(g);
-    noStroke();
-    plane(width, height);
-    pop();
-  }
 }
 
-// Open a link in a new tab, robust against popup blockers (fallback to an
-// anchor click, which is the most reliable way from a user-gesture handler).
-function openLink(url) {
-  if (!url) return;
-  let opened = false;
-  try {
-    opened = !!window.open(url, '_blank', 'noopener');
-  } catch (e) {
-    opened = false;
-  }
-  if (!opened) {
-    const a = document.createElement('a');
-    a.href = url;
-    a.target = '_blank';
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  }
+
+// ── Browser back-button support ──────────────────────────────
+// The app pushes a history entry each time it leaves its default state
+// (particle field). When the browser back button is pressed, popstate resets
+// the page to the default state; from the default state back truly leaves.
+
+function isDefaultState() {
+  return !galleryMode && !projectMode && !bioMode && !linksMode && !contactMode && !videoMode;
+}
+
+function resetToDefaultState() {
+  galleryMode = false;
+  projectMode = false;
+  bioMode = false;
+  linksMode = false;
+  contactMode = false;
+  selectedProjectId = -1;
+  projectScrollY = 0;
+  bioScrollY = 0;
+  if (videoMode) hideVimeo();
+  if (contactForm) contactForm.hide();
+  changeCubesToImages(false); // revert to cubes
+  returnCubesToParticles();   // move cubes back to particle positions
 }
 
 function mouseClicked() {
@@ -1151,18 +1212,6 @@ function mouseClicked() {
     return;
   }
 
-  // click a link inside the links overlay (before any close-outside logic)
-  if (linksMode) {
-    for (const b of linkBounds) {
-      if (mouseX >= b.x && mouseX <= b.x + b.w && mouseY >= b.y && mouseY <= b.y + b.h) {
-        if (b.url) {
-          openLink(b.url);
-          linksMode = false; // close the overlay as feedback
-        }
-        return;
-      }
-    }
-  }
 
   if(wHovered && galleryMode && !bioMode && !linksMode){ //a way to get out of gallery mode
     galleryMode = false;
@@ -1216,7 +1265,6 @@ function mouseClicked() {
     returnCubesToParticles();
     if (contactMode) { contactMode = false; contactForm.hide(); }
     linksMode = true;
-    linksScrollY = 0;
     return;
   }
 
@@ -1236,6 +1284,13 @@ function mouseClicked() {
   // [videothumb:N] launches the project video; [image:N] is reserved for future expand
   // (check BEFORE the "close box when clicking outside" else-if)
   if (projectMode && selectedProjectId >= 0) {
+    // clicking the gold "back" button in the box's upper-left corner closes it
+    if (projectBackBtn &&
+        mouseX >= projectBackBtn.x && mouseX <= projectBackBtn.x + projectBackBtn.w &&
+        mouseY >= projectBackBtn.y && mouseY <= projectBackBtn.y + projectBackBtn.h) {
+      projectMode = false;
+      return;
+    }
     const proj = projects[selectedProjectId];
     for (let b of imageBounds) {
       if (mouseX >= b.x && mouseX <= b.x + b.w &&
@@ -1277,15 +1332,6 @@ function mouseClicked() {
     if (mouseX < bx || mouseX > bx + bw || mouseY < by || mouseY > by + bh) {
       bioMode = false;
     }
-  } else if (linksMode && !exitHovered) {
-    // close links box when clicking outside
-    const lw = width * 0.6;
-    const lh = height * 0.6;
-    const lx = (width - lw) / 2;
-    const ly = (height - lh) / 2;
-    if (mouseX < lx || mouseX > lx + lw || mouseY < ly || mouseY > ly + lh) {
-      linksMode = false;
-    }
   }
 }
 
@@ -1296,10 +1342,6 @@ function mouseWheel(event) {
   }
   if (bioMode) {
     bioScrollY += event.delta;
-    return false;
-  }
-  if (linksMode) {
-    linksScrollY += event.delta;
     return false;
   }
 }
@@ -1315,17 +1357,15 @@ function touchMoved() {
     bioScrollY += (pmouseY - mouseY);
     return false;
   }
-  if (linksMode) {
-    linksScrollY += (pmouseY - mouseY);
-    return false;
-  }
 }
 
 function touchStarted() {
-  // prevent page scroll/zoom from being triggered by drags on the canvas
-  if (projectMode || bioMode || linksMode) {
-    return false;
-  }
+  // NOTE: intentionally return nothing (no preventDefault). p5 fires mouseClicked()
+  // from the browser's native "click" event, and on mobile the browser only
+  // synthesizes that click if touchstart was NOT preventDefault'd — so returning
+  // false here broke tapping video thumbnails and the back button on phones.
+  // Page scroll/zoom is already handled by p5's touch-action:none on the canvas
+  // plus the touchMoved() handler below.
 }
 
 function keyPressed() {
@@ -1360,7 +1400,8 @@ class Particle{
     let vel = createVector(random(-1, 1), random(-1, 1));
     this.position = loc;
     this.velocity = vel;
-    this.size = 10;
+    this.size = width/20;
+    this.zOff = 0; // z offset for drawing; lerped between modes in update()
     let pColor = color(random(255), random(255), random(255));
     this.pColor = pColor;
     this.birthTime = millis();
@@ -1382,7 +1423,9 @@ class Particle{
     }
     noStroke();
     push();
-    translate(this.position.x - width / 2, this.position.y - height / 2);
+    // zOff is -size while bouncing (keeps the cube behind the z=20 corner
+    // buttons) and 0 in gallery mode; lerped in update() for smooth transitions.
+    translate(this.position.x - width / 2, this.position.y - height / 2, this.zOff);
     rotateX(this.angle);
     rotateY(this.angle);
     rotateZ(this.angle);
@@ -1402,11 +1445,20 @@ class Particle{
       enforceMainRect(this);
     }
 
-    if(this.position.x > width || this.position.x < 0){
+    // z offset: bouncing mode pushes the cube back by one size so it stays
+    // behind the corner buttons; gallery mode sits at 0 (grid flush, like
+    // before). Lerp so the fly-in/out to the grid stays smooth.
+    this.zOff = lerp(this.zOff, this.showImage ? 0 : -this.size, 0.1);
+
+    // bounce off the canvas walls when the cube's EDGE touches (not the center)
+    const half = this.size / 2;
+    if (this.position.x > width - half || this.position.x < half) {
+      this.position.x = constrain(this.position.x, half, width - half);
       this.velocity.x *= -1;
       this.birthTime = millis(); //reborn when it hits the wall
     }
-    if(this.position.y > height || this.position.y < 0){
+    if (this.position.y > height - half || this.position.y < half) {
+      this.position.y = constrain(this.position.y, half, height - half);
       this.velocity.y *= -1;
       this.birthTime = millis(); //reborn when it hits the wall
     }
@@ -1453,8 +1505,10 @@ class MenuItem{ //figure out positioning
 
 // collision resolver (equal-mass elastic, circle-approximation + separation)
 function  resolveCollision(a, b) {
-    const boxSize = 10;
-    const minDist = boxSize; // approximate collision radius
+    // Collision happens when the cubes' EDGES touch: centers closer than
+    // half(a) + half(b). (Old code used a fixed radius of 10, so larger cubes
+    // passed through each other before bouncing.)
+    const minDist = (a.size + b.size) / 2;
     let n = p5.Vector.sub(b.position, a.position);
     let d = n.mag();
     if (d === 0) {
@@ -1510,26 +1564,31 @@ function getWindAt(position) {
 function enforceMainRect(p) {
   const rectHalfW = (width * 0.8) * 0.5;
   const rectHalfH = (height * 0.8) * 0.5;
-  const boxHalf = 5; // half of box(10)
+  const half = p.size / 2; // half of the cube's edge (not a hardcoded 5)
   // local position relative to rect center
   const localX = p.position.x - width / 2;
   const localY = p.position.y - height / 2;
 
-  // inside rectangle?
-  if (abs(localX) < rectHalfW && abs(localY) < rectHalfH) {
-    // penetration depths to each edge
-    const penX = rectHalfW - abs(localX);
-    const penY = rectHalfH - abs(localY);
+  // The cube's EDGE must stay clear of the rectangle, so the CENTER must stay
+  // outside the rectangle inflated by half the cube size.
+  const boundX = rectHalfW + half;
+  const boundY = rectHalfH + half;
+
+  // cube edge touching / penetrating the rectangle?
+  if (abs(localX) <= boundX && abs(localY) <= boundY) {
+    // distance from center to the nearest inflated boundary
+    const penX = boundX - abs(localX);
+    const penY = boundY - abs(localY);
 
     if (penX < penY) {
-      // push out horizontally
+      // reflect off the vertical face
       const side = localX >= 0 ? 1 : -1;
-      p.position.x = width / 2 + side * (rectHalfW + boxHalf);
+      p.position.x = width / 2 + side * boundX;
       p.velocity.x = -p.velocity.x * 0.8; // reflect + damp
     } else {
-      // push out vertically
+      // reflect off the horizontal face
       const side = localY >= 0 ? 1 : -1;
-      p.position.y = height / 2 + side * (rectHalfH + boxHalf);
+      p.position.y = height / 2 + side * boundY;
       p.velocity.y = -p.velocity.y * 0.8; // reflect + damp
     }
     p.birthTime = millis();
@@ -1543,8 +1602,6 @@ function windowResized() {
   projectOverlay.textFont(header);
   bioOverlay = createGraphics(width, height);
   bioOverlay.textFont(header);
-  linksOverlay = createGraphics(width, height);
-  linksOverlay.textFont(header);
   // update iframe sizing if visible
   if (vimeoIframe && vimeoIframe.elt && vimeoIframe.elt.style.display !== 'none') {
     showVimeoBackground();
@@ -1743,7 +1800,7 @@ function returnCubesToParticles() {
   for (let p of particles) {
     p.showImage = false; // revert to colored cubes
     p.enforceMainRect = true; // keep particles in main content box
-    p.size = lerp(p.size, 10, 0.1); // shrink back to original size
+    p.size = lerp(p.size, width/20, 0.1); // shrink back to original size
   }
 }
 
